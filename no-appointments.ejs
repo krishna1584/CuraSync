@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>no-appointments</title>
+  <style>
+
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      background-color: #ffffff;
+      font-family: 'Arial', sans-serif;
+    }
+    
+
+    img {
+      max-width: 90%;
+      max-height: 90%;
+      /* border-radius: 10px; */
+      /* box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); */
+    }
+    
+    .btn-appointment {
+      background-color: #bd49eb;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+      margin-top: 20px;
+      box-shadow: 0 10px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-appointment:hover {
+      background-color: #af1ff1;
+      box-shadow: 0 20px 20px rgba(0, 0, 0, 0.15);
+    }
+  
+    .btn-appointment a {
+      color: white;
+      text-decoration: none;
+    }
+
+  </style>
+</head>
+<body>
+  <img src="/assets/no-appt.png" alt="No Appointments Available">
+  <button class="btn-appointment"><a href="/home">Book Appointments</a></button>
+</body>
+</html>

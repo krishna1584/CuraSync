@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us | Hospital Management</title>
+    <link rel="stylesheet" href="/contact.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            color: #333;
+            /* Neutral text color */
+            background-color: #f4f4f4;
+            /* Neutral background color */
+            line-height: 1.6;
+        }
+
+        header {
+            background: linear-gradient(135deg, #480ca8, #4cc9f0);
+            color: #fff;
+            padding: 20px 50px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            letter-spacing: 1px;
+        }
+
+        nav {
+            margin-top: 10px;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            justify-content: center;
+        }
+
+        nav ul li {
+            margin: 0 15px;
+        }
+
+        nav ul li a {
+            text-decoration: none;
+            color: #fff;
+            font-size: 1.1rem;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        nav ul li a:hover {
+            text-decoration: underline;
+            color: rgb(231, 211, 24);
+        }
+
+        .contact-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: #fff;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            max-width: 1200px;
+        }
+
+        .contact-info,
+        .contact-form {
+            flex: 1;
+            margin: 0 20px;
+        }
+
+        .contact-info h2,
+        .contact-form h2 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: #333;
+            /* Neutral color for headings */
+        }
+
+        .contact-info p {
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            color: #333;
+            /* Neutral color for text */
+        }
+
+        .contact-info a {
+            color: #480ca8;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .contact-info a:hover {
+            text-decoration: underline;
+            /* color: #4cc9f0; */
+        }
+
+        .contact-form input,
+        .contact-form textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 1rem;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        .contact-form button {
+            padding: 12px;
+            background: linear-gradient(135deg, #480ca8, #4cc9f0);
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+
+
+        footer {
+            /* position:fixed; */
+            text-align: center;
+            padding: 15px;
+            background: linear-gradient(135deg, #480ca8, #4cc9f0);
+            color: #fff;
+            margin-top: 50px;
+            width: 100%;
+            position: absolute;
+            bottom: 0px;
+        }
+
+        footer p {
+            font-size: 1rem;
+        }
+
+        footer p a {
+            color: #fff;
+            text-decoration: none;
+        }
+
+        footer p a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header>
+        <h1>CuraSync</h1>
+        <nav>
+            <ul>
+                <li><a href="/home">Home</a></li>
+                <li><a href="/home/about">About Us</a></li>
+                <li><a href="/home/contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Contact Section -->
+    <div class="contact-container">
+        <!-- Contact Info -->
+        <div class="contact-info">
+            <h2>Contact Information</h2>
+            <p><strong>Emergency Contact:</strong> <a href="tel:+123456789">+91 234 567 890</a></p>
+            <p><strong>Direct Hospital Contact:</strong> <a href="tel:+1987654321">+91 987 654 321</a></p>
+            <p><strong>Visit Us:</strong> <a href="#">Find Our Locations</a></p>
+        </div>
+
+        <!-- Contact Form -->
+        <div class="contact-form">
+            <h2>Send Us a Message</h2>
+            <form id="contactForm" action="/home/contact" method="POST">
+                <input type="text" name="name" placeholder="Your Name" required>
+                <input type="email" name="email" placeholder="Your Email" required>
+                <textarea name="message" placeholder="Your Message" rows="6" required></textarea>
+                <button type="submit">Send Message</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        document.getElementById('contactForm').addEventListener('submit', function (e) {
+            e.preventDefault(); // Prevent actual form submission
+    
+            alert("Message sent successfully!");
+    
+            // Optional: Submit the form after alert
+            this.submit();
+        });
+    </script>
+    <!-- Footer -->
+    <!-- <footer>
+        <p>&copy; 2024 Hospital Management | All Rights Reserved</p>
+    </footer> -->
+
+</body>
+
+</html>

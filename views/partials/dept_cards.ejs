@@ -1,0 +1,24 @@
+<section class="features" id="departments">
+    <h2>Our Departments</h2>
+    <div class="cards">
+        <% const departments = [
+            { title: "Cardiology", image: "../assets/gmchCardiology.png", desc: "Comprehensive heart care services." },
+            { title: "Neurology", image: "../assets/gmchNeurology.png", desc: "Specialized care for brain and nervous system disorders." },
+            { title: "Orthopedics", image: "../assets/maxOrtho.png", desc: "Advanced treatments for bones and joints." },
+            { title: "Radiology", image: "../assets/gmchRadiology.png", desc: "Imaging and diagnostics." },
+            { title: "Neurology", image: "../assets/gmchNeurology.png", desc: "Specialized care for brain and nervous system disorders." },
+            { title: "ENT (Ear, Nose, Throat)", image: "../assets/gmchENT.png", desc: "Specialized care for conditions affecting the ear, nose, and throat." },
+            { title: "Cardiology", image: "../assets/gmchCardiology.png", desc: "Comprehensive heart care services." },
+            { title: "Orthopedics", image: "../assets/gmchOrthopedics.png", desc: "Advanced treatments for bones and joints." },
+            { title: "Gastroenterology", image: "../assets/gmchGastroenterology.png", desc: "It specializes in the diagnosis and treatment of digestive system disorders." }
+        ]; %>
+
+        <% departments.forEach(dept => { %>
+            <div class="card">
+                <h3><%= dept.title %></h3>
+                <img src="<%= dept.image %>" alt="<%= dept.title %>">
+                <p><%= dept.desc %></p>
+            </div>
+        <% }) %>
+    </div>
+</section>

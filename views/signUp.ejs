@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+   <meta charset="utf-8">
+   <title>Sign Up</title>
+   <link rel="stylesheet" href="login.css">
+</head>
+
+<body>
+   <div class="wrapper">
+      <div class="title">
+         Register
+      </div>
+      <form id="signup-form">
+         <div class="field">
+            <input type="text" id="name" required>
+            <label>Full Name</label>
+         </div>
+         <div class="field">
+            <input type="email" id="email" required>
+            <label>Email Address</label>
+         </div>
+         <div class="field">
+            <input type="password" id="password" required>
+            <label>Password</label>
+         </div>
+         <div class="field">
+            <input type="password" id="confirm-password" required>
+            <label>Confirm Password</label>
+         </div>
+         <div class="content">
+            <div class="checkbox">
+               <input type="checkbox" id="accept-terms" required>
+               <label for="accept-terms">I accept the terms and conditions</label>
+            </div>
+         </div>
+         <div class="field">
+            <input type="submit" value="Sign Up">
+         </div>
+         <div class="login-link">
+            Already a member? <a href="/login">Login now</a>
+         </div>
+      </form>
+   </div>
+
+   <script>
+      document.getElementById("signup-form").addEventListener("submit", async (e) => {
+         e.preventDefault(); // Prevent default form submission
+   
+         const name = document.getElementById("name").value;
+         const email = document.getElementById("email").value;
+         const password = document.getElementById("password").value;
+         const confirmPassword = document.getElementById("confirm-password").value;
+         const acceptTerms = document.getElementById("accept-terms").checked;
+   
+         // 1st Check: Password length >= 8
+         if (password.length < 8) {
+            alert("Password must be at least 8 characters long.");
+            return;
+         }
+   
+         // 2nd Check: Uppercase letter present
+         if (!/[A-Z]/.test(password)) {
+            alert("Password must contain at least one uppercase letter.");
+            return;
+         }
+   
+         // 3rd Check: Lowercase letter present
+         if (!/[a-z]/.test(password)) {
+            alert("Password must contain at least one lowercase letter.");
+            return;
+         }
+   
+         // 4th Check: Digit present
+         if (!/\d/.test(password)) {
+            alert("Password must contain at least one digit.");
+            return;
+         }
+   
+         // 5th Check: Special character present
+         if (!/[@$!%*?&]/.test(password)) {
+            alert("Password must contain at least one special character (e.g., @$!%*?&).");
+            return;
+         }
+   
+         // Check if passwords match
+         if (password !== confirmPassword) {
+            alert("Passwords do not match.");
+            return;
+         }
+   
+         if (!acceptTerms) {
+            alert("You must accept the terms and conditions.");
+            return;
+         }
+   
+         try {
+            // Change the URL to /signup (without .html)
+            const response = await fetch("http://localhost:3000/register", {
+               method: "POST",  // Update to PUT method for registration
+               headers: {
+                  "Content-Type": "application/json"
+               },
+               body: JSON.stringify({ name, email, password }) // Send registration details
+            });
+   
+            // Handle response from server
+            const data = await response.json();
+            if (response.ok) {
+               alert(data.message);
+               // Redirect user to login page
+               window.location.href = "/login";
+            } else {
+               alert(data.error); // Example: "Email already registered"
+            }
+         } catch (error) {
+            console.error("Error:", error);
+            alert("An error occurred. Please try again later.");
+         }
+      });
+   </script>
+   
+</body>
+
+</html>

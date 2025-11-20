@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Appointments</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #eaeafc 0%, #f8f6ff 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      animation: fadeInBody 1s ease-in-out;
+    }
+
+    @keyframes fadeInBody {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    h1 {
+      text-align: center;
+      margin: 40px 0 18px;
+      color: #2e236c;
+      font-size: 2.5rem;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 6px rgba(46, 35, 108, 0.07);
+    }
+
+    h1 i {
+      color: #5a4fd6;
+      margin-right: 8px;
+      transition: transform 0.3s ease;
+    }
+
+    h1:hover i {
+      transform: rotate(10deg);
+    }
+
+    table {
+      width: 92%;
+      max-width: 1100px;
+      margin: 36px auto;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: #fff;
+      border-radius: 18px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 12px 36px rgba(46, 35, 108, 0.1);
+      animation: fadeIn 1s ease;
+    }
+
+    table::before {
+      content: "";
+      display: block;
+      height: 5px;
+      background: linear-gradient(to right, #5a4fd6, #c8acff);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px);}
+      to { opacity: 1; transform: translateY(0);}
+    }
+
+    thead th {
+      background: linear-gradient(90deg, #5a4fd6, #7c62e2);
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-bottom: 3px solid #bdb6e9;
+      font-weight: 600;
+      font-size: 1.08rem;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    th, td {
+      padding: 18px 20px;
+      text-align: left;
+      border-bottom: 1px solid #ece8fc;
+      font-size: 1.05rem;
+      transition: background 0.2s;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Remove the alternating row color since we're adding custom colors */
+    /*
+    tr:nth-child(even) {
+      background-color: #f8f7ff;
+    }
+    */
+
+    /* Past appointments - Red styling */
+    tr.past-appointment {
+      background-color: rgba(255, 200, 200, 0.4);
+      border-left: 4px solid #e74c3c;
+    }
+    
+    tr.past-appointment:hover {
+      background-color: rgba(218, 141, 141, 0.753);
+      box-shadow: 0 4px 14px rgba(231, 76, 60, 0.15);
+      border-left: 4px solid #e74c3c;
+    }
+
+    /* Future appointments - Green styling */
+    tr.future-appointment {
+      background-color: rgba(200, 255, 200, 0.4);
+      border-left: 4px solid #2ecc71;
+    }
+    
+    tr.future-appointment:hover {
+      background-color: rgb(200, 255, 200);
+      box-shadow: 0 4px 14px rgba(46, 204, 113, 0.15);
+      border-left: 4px solid #2ecc71;
+    }
+
+    .avatar-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #5a4fd6 40%, #bdb6e9 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: bold;
+      font-size: 1rem;
+      box-shadow: 0 2px 6px rgba(90, 79, 214, 0.13);
+      border: 2px solid #edeaff;
+      transition: transform 0.25s ease;
+    }
+
+    .avatar-cell:hover .avatar {
+      transform: scale(1.1) rotate(3deg);
+    }
+
+    .email-btn {
+      background: linear-gradient(90deg, #5a4fd628 30%, #2e236c38 100%);
+      color: #000000;
+      border: none;
+      border-radius: 18px;
+      padding: 7px 20px;
+      font-size: 0.96rem;
+      cursor: pointer;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      font-weight: 600;
+      box-shadow: 0 1px 4px rgba(90, 79, 214, 0.08);
+      transition: all 0.2s ease-in-out;
+      outline: none;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    
+    .email-btn:focus {
+      /* background: linear-gradient(90deg, #2e236c 60%, #5a4fd6 100%); */
+      box-shadow: 0 4px 16px rgba(90, 79, 214, 0.2);
+      transform: translateY(-2px) scale(1.05);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 900px) {
+      table { width: 98%; }
+      th, td { padding: 12px 10px; font-size: 0.96rem; }
+      h1 { font-size: 2rem; }
+    }
+
+    @media (max-width: 600px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tr {
+        margin-bottom: 15px;
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: 0 2px 10px rgba(46, 35, 108, 0.1);
+      }
+      
+      /* For mobile view: maintain the color coding */
+      tr.past-appointment {
+        background-color: rgba(255, 200, 200, 0.4);
+      }
+      
+      tr.future-appointment {
+        background-color: rgba(200, 255, 200, 0.4);
+      }
+
+      td {
+        position: relative;
+        padding-left: 50%;
+        font-size: 0.9rem;
+      }
+
+      td::before {
+        position: absolute;
+        top: 12px;
+        left: 16px;
+        width: 45%;
+        white-space: nowrap;
+        font-weight: bold;
+        color: #5a4fd6;
+        font-size: 0.9rem;
+      }
+
+      td:nth-of-type(1)::before { content: "Name"; }
+      td:nth-of-type(2)::before { content: "Age"; }
+      td:nth-of-type(3)::before { content: "Gender"; }
+      td:nth-of-type(4)::before { content: "Email"; }
+      td:nth-of-type(5)::before { content: "Department"; }
+      td:nth-of-type(6)::before { content: "Date"; }
+      td:nth-of-type(7)::before { content: "Hospital"; }
+
+      .avatar {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9rem;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1><i class="fas fa-calendar-check"></i> Your Appointments</h1>
+
+  <table id="appointments-table">
+    <thead>
+      <tr>
+        <th><i class="fas fa-user"></i> Name</th>
+        <th><i class="fas fa-hashtag"></i> Age</th>
+        <th><i class="fas fa-venus-mars"></i> Gender</th>
+        <th><i class="fas fa-envelope"></i> Email</th>
+        <th><i class="fas fa-stethoscope"></i> Department</th>
+        <th><i class="fas fa-calendar-alt"></i> Date</th>
+        <th><i class="fas fa-hospital"></i> Hospital</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% appointments.forEach(app => { 
+        // Check if date has passed to determine the row class
+        const appointmentDate = new Date(app.date);
+        
+        // Normalize dates by setting both to midnight to compare only date portions
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Create a normalized version of appointment date (without time component)
+        const normalizedAppDate = new Date(appointmentDate);
+        normalizedAppDate.setHours(0, 0, 0, 0);
+        
+        // If date is today, consider it a future appointment (green)
+        // For dates in the past, show as past appointment (red)
+        const rowClass = normalizedAppDate < today ? 'past-appointment' : 'future-appointment';
+      %>
+        <tr class="<%= rowClass %>">
+          <td class="col">
+            <div class="avatar-cell">
+              <div class="avatar">
+                <%= app.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) %>
+              </div>
+              <span><%= app.name %></span>
+            </div>
+          </td>
+          <td class="col"><%= app.age %></td>
+          <td class="col"><%= app.gender %></td>
+          <td class="col">
+            <a href="mailto:<%= app.email %>" class="email-btn"><%= app.email %></a>
+          </td>
+          <td class="col"><%= app.department %></td>
+          <td class="col"><%= new Date(app.date).toLocaleDateString() %></td>
+          <td class="col"><%= app.hospital %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <script>
+    // Additional client-side check to update row colors in case the server rendering date is different from client time
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set today to midnight for date-only comparison
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const rows = document.querySelectorAll('#appointments-table tbody tr');
+      
+      rows.forEach(row => {
+        const dateCell = row.querySelector('td:nth-of-type(6)');
+        if (dateCell) {
+          // Get the date text from the cell
+          const dateText = dateCell.textContent.trim();
+          
+          // Create a more robust date parser that handles multiple formats
+          function parseDate(dateStr) {
+            // Try direct parsing first (works in some browsers/locales)
+            let date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+              return date;
+            }
+            
+            // If that fails, try common formats
+            const formats = [
+              // MM/DD/YYYY
+              {
+                regex: /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
+                parse: (match) => new Date(match[3], parseInt(match[1])-1, match[2])
+              },
+              // DD/MM/YYYY
+              {
+                regex: /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
+                parse: (match) => new Date(match[3], parseInt(match[2])-1, match[1])
+              },
+              // YYYY-MM-DD
+              {
+                regex: /(\d{4})-(\d{1,2})-(\d{1,2})/,
+                parse: (match) => new Date(match[1], parseInt(match[2])-1, match[3])
+              }
+            ];
+            
+            for (const format of formats) {
+              const match = dateStr.match(format.regex);
+              if (match) {
+                const parsedDate = format.parse(match);
+                if (!isNaN(parsedDate.getTime())) {
+                  return parsedDate;
+                }
+              }
+            }
+            
+            // As a last resort, try to handle text representation in current locale
+            try {
+              // Split by any common date separators
+              const parts = dateStr.split(/[\s,\/.-]+/);
+              
+              // Filter out non-numeric parts except month names
+              const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+              
+              // Look for patterns in the remaining parts
+              let year, month, day;
+              
+              parts.forEach(part => {
+                // Check for 4-digit year
+                if (part.length === 4 && !isNaN(parseInt(part))) {
+                  year = parseInt(part);
+                }
+                // Check for month name
+                else if (isNaN(parseInt(part)) && part.length >= 3) {
+                  const monthIndex = monthNames.findIndex(m => 
+                    part.toLowerCase().startsWith(m));
+                  if (monthIndex !== -1) {
+                    month = monthIndex;
+                  }
+                }
+                // Check for day (1 or 2 digits)
+                else if (part.length <= 2 && !isNaN(parseInt(part))) {
+                  const num = parseInt(part);
+                  if (num >= 1 && num <= 31) {
+                    day = num;
+                  }
+                  // Could also be a month number
+                  else if (num >= 1 && num <= 12 && month === undefined) {
+                    month = num - 1;
+                  }
+                }
+              });
+              
+              if (year && month !== undefined && day) {
+                return new Date(year, month, day);
+              }
+            } catch (e) {
+              console.error("Error parsing date:", e);
+            }
+            
+            return null;
+          }
+          
+          const appointmentDate = parseDate(dateText);
+          
+          if (appointmentDate) {
+            // Normalize to midnight
+            appointmentDate.setHours(0, 0, 0, 0);
+            
+            // Debug info
+            console.log("Date text:", dateText);
+            console.log("Parsed date:", appointmentDate);
+            console.log("Today:", today);
+            console.log("Is before today:", appointmentDate < today);
+            
+            // Remove any existing classes and add the appropriate one
+            row.classList.remove('past-appointment', 'future-appointment');
+            if (appointmentDate < today) {
+              row.classList.add('past-appointment');
+            } else {
+              row.classList.add('future-appointment');
+            }
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>

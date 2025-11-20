@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CuraSync - Comprehensive Health Care</title>
+    <link rel="stylesheet" href="/css/style.min.css">
+    
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+ 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
+</head>
+
+<body>
+    <nav>
+        <div class="container">
+            <a href="#" class="nav__logo">
+                <h3 class="nav__logo-text">CURASYNC</h3>
+            </a>
+            <ul id="nav__items">
+                <li><a href="/login">Home</a></li>
+                <li><a href="/login">Our Services</a></li>
+                <li><a href="/login">Our Hospitals</a></li>
+                <li><a href="/login">Patient Testimonials</a></li>
+                <li><a href="/login" class="btn">Login/SignUp</a></li>
+            </ul>
+
+            <button id="nav__btn--open"><i class='bx bx-menu'></i></button>
+            <button id="nav__btn--close"><i class='bx bx-x'></i></button>
+        </div>
+    </nav>
+
+    <header>
+        <div class="container">
+            <div class="header__content">
+                <h1>Your Health, Our Commitment</h1>
+                <p>
+                    Welcome to CuraSync, where we prioritize your health and well-being. Our dedicated team of healthcare professionals is committed to providing you with the highest quality of care and support.
+                </p>
+                <a href="/login" class="btn">Explore Hospitals</a>
+            </div>
+            <div class="header__image">
+                <img src="./assets/header.svg" alt="Healthcare Image">
+            </div>
+        </div>
+    </header>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
+    <script src="./main.js"></script>
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();  // Prevent the default form submission
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            // Make a POST request to the server with the login data
+            const response = await fetch('http://localhost:3000/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })  // Send the email and password
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert(data.message);  // If login is successful, show a success message
+            } else {
+                alert(data.error);  // If login fails, show an error message
+            }
+        });
+    </script>
+</body>
+</html>

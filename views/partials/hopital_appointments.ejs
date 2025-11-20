@@ -1,0 +1,64 @@
+<section id="appointments">
+    <h2>Book an Appointment</h2>
+    <form id="appointment-form" class="appointment-form">
+        <label for="name"><b>Name:</b></label>
+        <input type="text" id="name" name="name" placeholder="Enter your name" required>
+
+        <label for="age"><b>Age:</b></label>
+        <input type="number" id="age" name="age" min="1" max="120" placeholder="Enter your age" required>
+
+        <label for="gender"><b>Gender:</b></label>
+        <select id="gender" name="gender" required>
+            <option value="" disabled selected>Select your gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+        </select>
+
+        
+
+        <!-- <label for="email"><b>Email:</b></label>
+        <input type="email" id="email" name="email" placeholder="Enter your email" required> -->
+
+        <label for="department"><b>Choose Department:</b></label>
+        <select id="department" name="department" required>
+            <option value="" disabled selected>Select a department</option>
+            <option value="Cardiology">Cardiology</option>
+            <option value="Neurology">Neurology</option>
+            <option value="Orthopedics">Orthopedics</option>
+            <option value="Radiology">Radiology</option>
+            <option value="ENT">ENT (Ear, Nose, Throat)</option>
+            <option value="Gastroenterology">Gastroenterology</option>
+        </select>
+
+        <label for="date"><b>Preferred Date:</b></label>
+        <input type="date" id="date" name="date" required>
+
+        <!-- <label for="hospital"><b>Hospital:</b></label>
+        <select id="hospital" name="hospital" required>
+            <option value="" disabled selected>Select Hospital</option>
+            <option value="PGIMER">PGIMER</option>
+            <option value="GMCH-32">GMCH-32</option>
+            <option value="MAX">MAX</option>
+        </select> -->
+
+        <button type="submit">Submit</button>
+    </form>
+
+</section>
+
+<!-- script for date validation  -->
+<!-- <script>
+    const dateInput = document.getElementById("date");
+    const today = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(today.getDate() + 14);
+  
+    // Format to yyyy-mm-dd
+    const formatDate = (date) => {
+      return date.toISOString().split('T')[0];
+    };
+  
+    dateInput.min = formatDate(today);
+    dateInput.max = formatDate(nextWeek);
+</script> -->
