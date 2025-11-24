@@ -75,7 +75,8 @@ export default function PatientAppointmentsPage() {
       const verifyResponse = await fetch(`${API_URL}/auth/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include'
       });
 
       if (verifyResponse.ok) {

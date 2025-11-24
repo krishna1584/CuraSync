@@ -78,7 +78,8 @@ export default function PatientDashboard() {
       const response = await fetch(`${API_URL}/auth/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -125,7 +126,8 @@ export default function PatientDashboard() {
       const response = await fetch(`${API_URL}/users`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include'
       });
 
       if (response.ok) {

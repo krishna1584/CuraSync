@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         'Authorization': authHeader || '',
       },
+      credentials: 'include',
       body: JSON.stringify(body),
     });
 

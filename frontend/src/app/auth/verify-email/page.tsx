@@ -32,6 +32,7 @@ function VerifyEmailForm() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ email, otp }),
       });
 
@@ -59,6 +60,7 @@ function VerifyEmailForm() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ email, type: 'email-verification' }),
       });
 

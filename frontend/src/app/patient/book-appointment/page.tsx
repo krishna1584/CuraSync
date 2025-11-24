@@ -98,7 +98,8 @@ export default function BookAppointmentPage() {
       const response = await fetch(`${API_URL}/auth/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -147,7 +148,8 @@ export default function BookAppointmentPage() {
       const response = await fetch(`${API_URL}/users`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -194,6 +196,7 @@ export default function BookAppointmentPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
+        credentials: 'include',
         body: JSON.stringify({
           patientId: user._id,
           doctorId: selectedDoctor._id,

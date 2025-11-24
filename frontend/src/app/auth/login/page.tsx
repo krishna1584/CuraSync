@@ -61,6 +61,7 @@ function LoginForm() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Important: Include cookies in cross-origin requests
         body: JSON.stringify(formData),
       });
 
