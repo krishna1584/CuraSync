@@ -22,6 +22,9 @@ const { connectDB } = require('./config/database');
 
 const app = express();
 
+// Trust proxy - Required for deployment on Render, Heroku, etc.
+app.set('trust proxy', 1);
+
 // Connect to database
 connectDB();
 
@@ -34,7 +37,9 @@ app.use(helmet({
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 app.use('/api/', limiter);
 
@@ -62,6 +67,14 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Health check route
 app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    message: 'CuraSync Hospital API is running',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || '1.0.0'
+  });
+});
+app.get('/', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
     message: 'CuraSync Hospital API is running',
