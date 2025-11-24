@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Heart, Eye, EyeOff, User, Mail, Phone } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Navigation from '@/components/Navigation';
+import { API_URL } from '@/lib/config';
 
 function SignupForm() {
   const router = useRouter();
@@ -73,7 +74,7 @@ function SignupForm() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/signup', {
+      const response = await fetch(`${API_URL}/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +95,7 @@ function SignupForm() {
       } else {
         toast.error(data.message || 'Registration failed');
       }
-    } catch (error) {
+    } catch {
       toast.error('Network error. Please try again.');
     } finally {
       setIsLoading(false);

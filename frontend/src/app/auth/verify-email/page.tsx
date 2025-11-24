@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Heart, Mail, Shield } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import Navigation from '@/components/Navigation';
+import { API_URL } from '@/lib/config';
 
-export default function VerifyEmailPage() {
+function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || '';
@@ -27,7 +27,7 @@ export default function VerifyEmailPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-email', {
+      const response = await fetch(`${API_URL}/auth/verify-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,7 +43,7 @@ export default function VerifyEmailPage() {
       } else {
         toast.error(data.message || 'Verification failed');
       }
-    } catch (error) {
+    } catch {
       toast.error('Network error. Please try again.');
     } finally {
       setIsLoading(false);
@@ -54,7 +54,7 @@ export default function VerifyEmailPage() {
     setResendLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/resend-otp', {
+      const response = await fetch(`${API_URL}/auth/resend-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -69,8 +69,8 @@ export default function VerifyEmailPage() {
       } else {
         toast.error(data.message || 'Failed to resend OTP');
       }
-    } catch (error) {
-      toast.error('Network error. Please try again.');
+    } catch {
+      toast.error('Network error. Please try again');
     } finally {
       setResendLoading(false);
     }
@@ -178,5 +178,13 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <VerifyEmailForm />
+    </Suspense>
   );
 }

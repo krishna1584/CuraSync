@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { User as UserType } from '../../../types';
+import { API_URL } from '@/lib/config';
 import { 
   Calendar, 
   Clock, 
@@ -37,26 +39,28 @@ interface Appointment {
 export default function PatientAppointmentsPage() {
   const router = useRouter();
   const { socket, isConnected, notifications, registerUser, clearNotification } = useSocket();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserType | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const socketRegistered = useRef(false);
 
   useEffect(() => {
     fetchAppointments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Register user with socket when authenticated (only once per user)
   useEffect(() => {
-    if (user && socket && isConnected && !user._socketRegistered) {
+    if (user && socket && isConnected && !socketRegistered.current) {
       registerUser({
         userId: user._id,
         role: user.role,
         name: user.name
       });
-      // Mark as registered to prevent re-registration
-      setUser({ ...user, _socketRegistered: true });
+      socketRegistered.current = true;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id, socket, isConnected]);
 
   const fetchAppointments = async () => {
@@ -68,7 +72,7 @@ export default function PatientAppointmentsPage() {
       }
 
       // Verify user first
-      const verifyResponse = await fetch('http://localhost:5000/api/auth/verify', {
+      const verifyResponse = await fetch(`${API_URL}/auth/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { API_URL } from '@/lib/config';
 import { 
   Calendar,
   Clock,
@@ -51,6 +52,7 @@ export default function DoctorAppointments() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'scheduled' | 'completed' | 'cancelled'>('all');
   const router = useRouter();
+  const socketRegistered = useRef(false);
 
   // Initialize WebSocket connection
   const { socket, isConnected, notifications, registerUser, clearNotification } = useSocket();
@@ -58,18 +60,20 @@ export default function DoctorAppointments() {
   useEffect(() => {
     checkAuth();
     fetchAppointments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Register user with WebSocket when user data is available
   useEffect(() => {
-    if (user && socket && isConnected && !user._socketRegistered) {
+    if (user && socket && isConnected && !socketRegistered.current) {
       registerUser({
         userId: user._id,
         role: user.role,
         name: user.name
       });
-      // Mark as registered (note: we can't setUser here as it's read-only in this component)
+      socketRegistered.current = true;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id, socket, isConnected]);
 
   // Listen for new appointments to refresh the list
@@ -96,7 +100,7 @@ export default function DoctorAppointments() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/auth/verify', {
+      const response = await fetch(`${API_URL}/auth/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -143,7 +147,7 @@ export default function DoctorAppointments() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:5000/api/appointments/my-appointments', {
+      const response = await fetch(`${API_URL}/appointments/my-appointments`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

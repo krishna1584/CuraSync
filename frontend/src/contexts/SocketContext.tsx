@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { SOCKET_URL } from '../lib/config';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -59,7 +60,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     // Use existing socket or create new one
     if (!globalSocket) {
       console.log('🔌 Creating new socket connection...');
-      globalSocket = io('http://localhost:5000', {
+      globalSocket = io(SOCKET_URL, {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,

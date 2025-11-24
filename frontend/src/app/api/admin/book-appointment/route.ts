@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { API_URL } from '@/config/api';
 
 export async function POST(request: NextRequest) {
   try {
@@ -6,7 +7,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const authHeader = request.headers.get('authorization');
 
-    const response = await fetch('http://localhost:5000/api/admin/book-appointment', {
+    const response = await fetch(`${API_URL}/admin/book-appointment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

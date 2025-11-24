@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  Users, 
-  Stethoscope, 
   Calendar, 
   Clock, 
   Search,
@@ -58,6 +56,7 @@ export default function AdminBookingPage() {
 
   useEffect(() => {
     fetchPatientsAndDoctors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPatientsAndDoctors = async () => {
@@ -130,7 +129,7 @@ export default function AdminBookingPage() {
       } else {
         toast.error(data.message || 'Failed to book appointment');
       }
-    } catch (error) {
+    } catch {
       toast.error('Network error. Please try again.');
     } finally {
       setBooking(false);

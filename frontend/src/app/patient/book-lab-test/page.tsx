@@ -4,14 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  TestTube, 
   Calendar, 
   Clock, 
   Search,
   ArrowLeft,
-  CheckCircle,
-  IndianRupee,
-  Filter
+  IndianRupee
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Navigation from '@/components/Navigation';
@@ -133,6 +130,7 @@ export default function BookLabTestPage() {
 
   useEffect(() => {
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredTests = labTests.filter(test => {
@@ -199,7 +197,7 @@ export default function BookLabTestPage() {
       } else {
         toast.error(data.message || 'Failed to book tests');
       }
-    } catch (error) {
+    } catch {
       toast.error('Network error. Please try again.');
     } finally {
       setBooking(false);

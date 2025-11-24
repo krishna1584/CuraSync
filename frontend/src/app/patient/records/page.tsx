@@ -11,8 +11,7 @@ import {
   User,
   Eye,
   Trash2,
-  Plus,
-  AlertCircle
+  Plus
 } from 'lucide-react';
 
 export default function MedicalRecords() {

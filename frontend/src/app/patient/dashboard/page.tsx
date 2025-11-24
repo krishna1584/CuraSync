@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { User } from '../../../types';
+import { API_URL } from '@/lib/config';
 import { 
   Calendar, 
   Upload, 
@@ -40,6 +42,7 @@ export default function PatientDashboard() {
   const [loading, setLoading] = useState(true);
   const [doctorsLoading, setDoctorsLoading] = useState(true);
   const router = useRouter();
+  const socketRegistered = useRef(false);
   
   // Initialize WebSocket connection
   const { socket, isConnected, notifications, registerUser, clearNotification } = useSocket();
@@ -47,19 +50,20 @@ export default function PatientDashboard() {
   useEffect(() => {
     checkAuth();
     fetchDoctors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Register user with WebSocket when user data is available
   useEffect(() => {
-    if (user && socket && isConnected && !user._socketRegistered) {
+    if (user && socket && isConnected && !socketRegistered.current) {
       registerUser({
         userId: user._id,
         role: user.role,
         name: user.name
       });
-      // Mark as registered to prevent re-registration
-      setUser({ ...user, _socketRegistered: true });
+      socketRegistered.current = true;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id, socket, isConnected]);
 
   const checkAuth = async () => {
@@ -71,7 +75,7 @@ export default function PatientDashboard() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/auth/verify', {
+      const response = await fetch(`${API_URL}/auth/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -118,7 +122,7 @@ export default function PatientDashboard() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:5000/api/users', {
+      const response = await fetch(`${API_URL}/users`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -127,7 +131,7 @@ export default function PatientDashboard() {
       if (response.ok) {
         const result = await response.json();
         const users = result.data || result;
-        const doctorsList = users.filter((user: any) => user.role === 'doctor');
+        const doctorsList = users.filter((user: User) => user.role === 'doctor');
         setDoctors(doctorsList);
       }
     } catch (error) {

@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { User as UserType } from '../../../types';
+import { API_URL } from '@/lib/config';
 import { 
   Calendar, 
   Clock, 
-  User, 
   Stethoscope, 
   ArrowLeft,
   CheckCircle,
@@ -41,7 +42,8 @@ interface TimeSlot {
 export default function BookAppointmentPage() {
   const router = useRouter();
   const { socket, isConnected, notifications, registerUser, clearNotification } = useSocket();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserType | null>(null);
+  const socketRegistered = useRef(false);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
@@ -68,19 +70,20 @@ export default function BookAppointmentPage() {
 
   useEffect(() => {
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Register user with socket when authenticated (only once per user)
   useEffect(() => {
-    if (user && socket && isConnected && !user._socketRegistered) {
+    if (user && socket && isConnected && !socketRegistered.current) {
       registerUser({
         userId: user._id,
         role: user.role,
         name: user.name
       });
-      // Mark as registered to prevent re-registration
-      setUser({ ...user, _socketRegistered: true });
+      socketRegistered.current = true;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id, socket, isConnected]);
 
   const checkAuth = async () => {
@@ -92,7 +95,7 @@ export default function BookAppointmentPage() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/auth/verify', {
+      const response = await fetch(`${API_URL}/auth/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -141,7 +144,7 @@ export default function BookAppointmentPage() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/users', {
+      const response = await fetch(`${API_URL}/users`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -150,11 +153,11 @@ export default function BookAppointmentPage() {
       if (response.ok) {
         const result = await response.json();
         const users = result.data || result;
-        const doctorsList = users.filter((user: any) => user.role === 'doctor');
+        const doctorsList = users.filter((user: UserType) => user.role === 'doctor');
         setDoctors(doctorsList);
       }
-    } catch (error) {
-      console.error('Failed to fetch doctors:', error);
+    } catch (_error) {
+      console.error('Failed to fetch doctors:', _error);
       toast.error('Failed to load doctors');
     } finally {
       setLoading(false);
@@ -185,7 +188,7 @@ export default function BookAppointmentPage() {
         type: appointmentType
       });
 
-      const response = await fetch('http://localhost:5000/api/appointments', {
+      const response = await fetch(`${API_URL}/appointments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

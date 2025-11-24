@@ -10,11 +10,7 @@ import {
   User, 
   Tag,
   X,
-  CheckCircle,
-  ArrowLeft,
-  FileText,
-  Camera,
-  Stethoscope
+  ArrowLeft
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Navigation from '@/components/Navigation';
@@ -69,6 +65,7 @@ export default function UploadReportPage() {
 
   useEffect(() => {
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAuth = async () => {
@@ -239,7 +236,7 @@ export default function UploadReportPage() {
       } else {
         toast.error(data.message || 'Upload failed');
       }
-    } catch (error) {
+    } catch {
       toast.error('Network error. Please try again.');
     } finally {
       setUploading(false);
