@@ -218,16 +218,16 @@ export default function DoctorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
         {/* Notifications */}
         <NotificationBell notifications={notifications} onClear={clearNotification} />
 
         {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-gray-900">Doctor Dashboard</h1>
+        <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Doctor Dashboard</h1>
               <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
                 isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
               }`}>
@@ -245,7 +245,7 @@ export default function DoctorDashboard() {
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
@@ -253,7 +253,7 @@ export default function DoctorDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* See Patients */}
           <Link href="/doctor/patients" className="bg-white rounded-lg p-6 shadow hover:shadow-lg transition-shadow">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
@@ -271,11 +271,20 @@ export default function DoctorDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Add Prescription</h3>
             <p className="text-gray-600 text-sm">Create and manage patient prescriptions</p>
           </Link>
+
+          {/* Profile & Settings */}
+          <Link href="/doctor/profile" className="bg-white rounded-lg p-6 shadow hover:shadow-lg transition-shadow">
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+              <User className="h-6 w-6 text-purple-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Profile & Settings</h3>
+            <p className="text-gray-600 text-sm">Manage your profile and preferences</p>
+          </Link>
         </div>
 
         {/* Today&apos;s Schedule */}
-        <div className="mt-8 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Today&apos;s Appointments</h2>
+        <div className="mt-6 sm:mt-8 bg-white rounded-lg shadow p-4 sm:p-6">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Today&apos;s Appointments</h2>
           {appointmentsLoading ? (
             <div className="text-center py-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -287,7 +296,7 @@ export default function DoctorDashboard() {
                 const patientName = appointment.patient?.name || 'Unknown Patient';
                 const appointmentTime = appointment.time || 'N/A';
                 return (
-                <div key={appointment._id} className="flex items-center justify-between p-4 bg-gray-50 rounded">
+                <div key={appointment._id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 bg-gray-50 rounded gap-2 sm:gap-0">
                   <div className="flex items-center">
                     <User className="h-5 w-5 text-blue-600 mr-3" />
                     <div>
@@ -317,15 +326,15 @@ export default function DoctorDashboard() {
         </div>
 
         {/* My Patients */}
-        <div className="mt-8 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">My Patients</h2>
+        <div className="mt-6 sm:mt-8 bg-white rounded-lg shadow p-4 sm:p-6">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">My Patients</h2>
           {patientsLoading ? (
             <div className="text-center py-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
               <p className="text-gray-600 mt-2">Loading patients...</p>
             </div>
           ) : patients.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               {patients.map((patient) => (
                 <div key={patient._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between">

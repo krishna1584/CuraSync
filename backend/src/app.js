@@ -14,6 +14,7 @@ const appointmentRoutes = require('./routes/appointments');
 const adminRoutes = require('./routes/admin');
 const labTestRoutes = require('./routes/labTests');
 const reportRoutes = require('./routes/reports');
+const prescriptionRoutes = require('./routes/prescriptions');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -118,6 +119,7 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/lab-tests', labTestRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/prescriptions', prescriptionRoutes);
 
 // Serve static files for uploads
 app.use('/uploads', express.static('uploads'));

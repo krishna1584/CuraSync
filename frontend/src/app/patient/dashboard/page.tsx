@@ -14,7 +14,10 @@ import {
   Phone,
   Mail,
   Wifi,
-  WifiOff
+  WifiOff,
+  User as UserIcon,
+  Settings,
+  Pill
 } from 'lucide-react';
 import { useSocket } from '../../../contexts/SocketContext';
 import { NotificationBell } from '../../../components/NotificationBell';
@@ -36,11 +39,52 @@ interface Doctor {
   doctorId?: string;
 }
 
+interface Appointment {
+  _id: string;
+  patient: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  doctor: {
+    _id: string;
+    name: string;
+    specialization?: string;
+  };
+  date: string;
+  time: string;
+  reason: string;
+  status: string;
+  type: string;
+}
+
+interface Prescription {
+  _id: string;
+  doctorId: {
+    _id: string;
+    name: string;
+    specialization?: string;
+  };
+  diagnosis: string;
+  medications: {
+    name: string;
+    dosage: string;
+    frequency: string;
+    duration: string;
+  }[];
+  createdAt: string;
+  status: string;
+}
+
 export default function PatientDashboard() {
   const [user, setUser] = useState<UserData | null>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [doctorsLoading, setDoctorsLoading] = useState(true);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
+  const [prescriptionsLoading, setPrescriptionsLoading] = useState(true);
   const router = useRouter();
   const socketRegistered = useRef(false);
   
@@ -52,6 +96,14 @@ export default function PatientDashboard() {
     fetchDoctors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchAppointments();
+      fetchPrescriptions();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // Register user with WebSocket when user data is available
   useEffect(() => {
@@ -65,6 +117,23 @@ export default function PatientDashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id, socket, isConnected]);
+
+  // Listen for prescription notifications and auto-refresh
+  useEffect(() => {
+    if (socket && isConnected) {
+      const handlePrescriptionNotification = () => {
+        console.log('📨 Prescription notification received, refreshing prescriptions...');
+        fetchPrescriptions();
+      };
+
+      socket.on('prescription_notification', handlePrescriptionNotification);
+
+      return () => {
+        socket.off('prescription_notification', handlePrescriptionNotification);
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, isConnected, user]);
 
   const checkAuth = async () => {
     try {
@@ -143,6 +212,71 @@ export default function PatientDashboard() {
     }
   };
 
+  const fetchAppointments = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token || !user) return;
+
+      const response = await fetch(`${API_URL}/appointments/patient/${user._id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const appointmentsData = result.data || result;
+        console.log('Patient appointments:', appointmentsData);
+        setAppointments(appointmentsData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch appointments:', error);
+    } finally {
+      setAppointmentsLoading(false);
+    }
+  };
+
+  const fetchPrescriptions = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token || !user) return;
+
+      const response = await fetch(`${API_URL}/prescriptions/patient/${user._id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const prescriptionsData = result.data || result;
+        console.log('Patient prescriptions:', prescriptionsData);
+        setPrescriptions(prescriptionsData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch prescriptions:', error);
+    } finally {
+      setPrescriptionsLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'scheduled':
+        return 'bg-blue-100 text-blue-700';
+      case 'completed':
+        return 'bg-green-100 text-green-700';
+      case 'cancelled':
+        return 'bg-red-100 text-red-700';
+      case 'no-show':
+        return 'bg-gray-100 text-gray-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     router.push('/auth/login');
@@ -160,16 +294,16 @@ export default function PatientDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
         {/* Notifications */}
         <NotificationBell notifications={notifications} onClear={clearNotification} />
 
         {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-gray-900">Patient Dashboard</h1>
+        <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Patient Dashboard</h1>
               <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
                 isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
               }`}>
@@ -181,7 +315,7 @@ export default function PatientDashboard() {
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
@@ -189,7 +323,7 @@ export default function PatientDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Book Doctor */}
           <Link href="/patient/book-appointment" className="bg-white rounded-lg p-6 shadow hover:shadow-lg transition-shadow">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
@@ -208,14 +342,158 @@ export default function PatientDashboard() {
             <p className="text-gray-600 text-sm">Schedule lab tests and medical screenings</p>
           </Link>
 
-          {/* Upload Report */}
-          <Link href="/upload-report" className="bg-white rounded-lg p-6 shadow hover:shadow-lg transition-shadow">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-              <Upload className="h-6 w-6 text-purple-600" />
+          {/* My Profile */}
+          <Link href="/patient/profile" className="bg-white rounded-lg p-6 shadow hover:shadow-lg transition-shadow">
+            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+              <UserIcon className="h-6 w-6 text-indigo-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload Report</h3>
-            <p className="text-gray-600 text-sm">Upload medical reports and documents</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">My Profile</h3>
+            <p className="text-gray-600 text-sm">View and edit your personal information</p>
           </Link>
+
+          {/* Settings */}
+          <Link href="/patient/settings" className="bg-white rounded-lg p-6 shadow hover:shadow-lg transition-shadow">
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+              <Settings className="h-6 w-6 text-purple-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Settings</h3>
+            <p className="text-gray-600 text-sm">Manage account and preferences</p>
+          </Link>
+        </div>
+
+        {/* My Appointments */}
+        <div className="mt-6 sm:mt-8 bg-white rounded-lg shadow p-4 sm:p-6">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">My Appointments</h2>
+          {appointmentsLoading ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-gray-600 mt-2">Loading appointments...</p>
+            </div>
+          ) : appointments.length > 0 ? (
+            <div className="space-y-4">
+              {appointments.map((appointment) => (
+                <div key={appointment._id} className="border rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow">
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-0">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-gray-900">Dr. {appointment.doctor?.name || 'Unknown'}</h3>
+                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(appointment.status)}`}>
+                          {appointment.status}
+                        </span>
+                      </div>
+                      {appointment.doctor?.specialization && (
+                        <p className="text-sm text-blue-600 mb-2">{appointment.doctor.specialization}</p>
+                      )}
+                      <div className="space-y-1 text-sm text-gray-600">
+                        <p className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-2" />
+                          {new Date(appointment.date).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                        <p className="ml-6">Time: {appointment.time}</p>
+                        <p className="ml-6">Reason: {appointment.reason}</p>
+                        {appointment.type && <p className="ml-6">Type: {appointment.type}</p>}
+                      </div>
+                    </div>
+                    <Link
+                      href="/patient/appointments"
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    >
+                      View Details
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 mb-4">No appointments scheduled yet</p>
+              <Link
+                href="/patient/book-appointment"
+                className="text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Book your first appointment
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* My Prescriptions */}
+        <div className="mt-8 bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">My Prescriptions</h2>
+            <Link href="/patient/prescriptions" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+              View All
+            </Link>
+          </div>
+          {prescriptionsLoading ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-gray-600 mt-2">Loading prescriptions...</p>
+            </div>
+          ) : prescriptions.length > 0 ? (
+            <div className="space-y-4">
+              {prescriptions.slice(0, 3).map((prescription) => (
+                <div key={prescription._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Pill className="h-4 w-4 text-blue-600" />
+                        <h3 className="font-semibold text-gray-900">
+                          Dr. {prescription.doctorId?.name || 'Unknown'}
+                        </h3>
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          prescription.status === 'active' 
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {prescription.status}
+                        </span>
+                      </div>
+                      {prescription.doctorId?.specialization && (
+                        <p className="text-sm text-blue-600 mb-2">{prescription.doctorId.specialization}</p>
+                      )}
+                      <div className="space-y-1 text-sm text-gray-600">
+                        <p className="font-medium text-gray-900">Diagnosis: {prescription.diagnosis}</p>
+                        <p className="mt-2 font-medium">Medications:</p>
+                        <ul className="ml-4 space-y-1">
+                          {prescription.medications.slice(0, 2).map((med, idx) => (
+                            <li key={idx} className="flex items-start">
+                              <span className="mr-2">•</span>
+                              <span>{med.name} - {med.dosage} ({med.frequency})</span>
+                            </li>
+                          ))}
+                          {prescription.medications.length > 2 && (
+                            <li className="text-blue-600 ml-4">+{prescription.medications.length - 2} more</li>
+                          )}
+                        </ul>
+                        <p className="mt-2 text-xs text-gray-500">
+                          Prescribed on {new Date(prescription.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Pill className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No prescriptions yet</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Your prescriptions will appear here after doctor consultations
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Available Doctors */}

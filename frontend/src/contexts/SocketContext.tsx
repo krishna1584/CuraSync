@@ -142,6 +142,31 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         // Notification will stay until manually dismissed
       });
 
+      // Listen for prescription notifications
+      globalSocket.on('prescription_notification', (data: SocketEventData) => {
+        console.log('\n💊 ========================================');
+        console.log('💊 PRESCRIPTION NOTIFICATION RECEIVED!');
+        console.log('💊 Type:', data.type);
+        console.log('💊 Message:', data.message);
+        console.log('💊 Current user role:', currentUserRole);
+        console.log('💊 Timestamp:', data.timestamp);
+        console.log('💊 ========================================\n');
+        
+        const notificationId = Date.now();
+        
+        setNotifications((prev) => {
+          const newNotifications = [{
+            id: notificationId,
+            type: data.type,
+            message: data.message,
+            timestamp: new Date(data.timestamp)
+          }, ...prev];
+          
+          console.log('✅ Prescription notification added! Total notifications:', newNotifications.length);
+          return newNotifications;
+        });
+      });
+
       console.log('✅ All socket event listeners registered');
     }
 

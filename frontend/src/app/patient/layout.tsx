@@ -14,12 +14,14 @@ import {
   LogOut,
   Bell,
   Menu,
-  X
+  X,
+  Pill
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/patient/dashboard', icon: LayoutDashboard },
   { name: 'Appointments', href: '/patient/appointments', icon: Calendar },
+  { name: 'Prescriptions', href: '/patient/prescriptions', icon: Pill },
   { name: 'Medical Records', href: '/patient/records', icon: FileText },
   { name: 'Lab Results', href: '/patient/lab-results', icon: TestTube },
   { name: 'Profile', href: '/patient/profile', icon: User },

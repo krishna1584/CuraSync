@@ -340,13 +340,32 @@ const getAppointmentsByPatient = async (req, res) => {
     const { patientId } = req.params;
     
     const appointments = await Appointment.find({ patientId })
-      .populate('doctorId', 'name specialization')
+      .populate('doctorId', 'name specialization email')
+      .populate('patientId', 'name email')
       .sort({ appointmentDate: 1 });
+
+    // Transform the data to use 'patient' and 'doctor' fields for frontend consistency
+    const transformedAppointments = appointments.map(apt => {
+      const aptObj = apt.toObject();
+      return {
+        _id: aptObj._id,
+        patient: aptObj.patientId,
+        doctor: aptObj.doctorId,
+        date: aptObj.appointmentDate,
+        time: aptObj.timeSlot,
+        reason: aptObj.reason,
+        status: aptObj.status,
+        type: aptObj.type,
+        notes: aptObj.notes,
+        createdAt: aptObj.createdAt,
+        updatedAt: aptObj.updatedAt
+      };
+    });
 
     res.status(200).json({
       success: true,
       message: 'Patient appointments fetched successfully',
-      data: appointments
+      data: transformedAppointments
     });
   } catch (error) {
     console.error('Get patient appointments error:', error);

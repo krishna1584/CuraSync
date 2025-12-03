@@ -152,20 +152,20 @@ export default function PatientAppointmentsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <NotificationBell notifications={notifications} onClear={clearNotification} />
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="mb-6">
           <Link href="/patient/dashboard" className="inline-flex items-center text-blue-600 hover:text-blue-700">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Link>
-          <div className="flex justify-between items-center mt-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Appointments</h1>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-4">
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Appointments</h1>
               <p className="text-gray-600 mt-2">View and manage your medical appointments</p>
             </div>
             <Link 
               href="/patient/book-appointment"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
             >
               <Plus className="h-4 w-4 mr-2" />
               Book New Appointment
@@ -174,8 +174,8 @@ export default function PatientAppointmentsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex items-center gap-4">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
             <div className="flex items-center">
               <Filter className="h-4 w-4 text-gray-500 mr-2" />
               <span className="text-sm font-medium text-gray-700">Filter by status:</span>
@@ -197,8 +197,8 @@ export default function PatientAppointmentsPage() {
         {filteredAppointments.length > 0 ? (
           <div className="space-y-4">
             {filteredAppointments.map((appointment) => (
-              <div key={appointment._id} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
+              <div key={appointment._id} className="bg-white rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition-shadow">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center mb-2">
                       <Stethoscope className="h-5 w-5 text-blue-600 mr-3" />
@@ -212,7 +212,7 @@ export default function PatientAppointmentsPage() {
                       <p className="text-blue-600 text-sm mb-2">{appointment.doctor.specialization}</p>
                     )}
                     
-                    <div className="grid md:grid-cols-2 gap-4 mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3">
                       <div className="flex items-center text-gray-600">
                         <Calendar className="h-4 w-4 mr-2" />
                         <span>{new Date(appointment.date).toLocaleDateString()}</span>

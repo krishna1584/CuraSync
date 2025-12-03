@@ -7,7 +7,6 @@ import {
   Calendar,
   Clock,
   User,
-  FileText,
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -50,7 +49,6 @@ export default function DoctorAppointments() {
   const [user, setUser] = useState<UserData | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'scheduled' | 'completed' | 'cancelled'>('all');
   const router = useRouter();
   const socketRegistered = useRef(false);
 
@@ -188,6 +186,8 @@ export default function DoctorAppointments() {
         return <CheckCircle className="h-5 w-5 text-green-600" />;
       case 'cancelled':
         return <XCircle className="h-5 w-5 text-red-600" />;
+      case 'expired':
+        return <AlertCircle className="h-5 w-5 text-orange-600" />;
       default:
         return <AlertCircle className="h-5 w-5 text-yellow-600" />;
     }
@@ -201,14 +201,71 @@ export default function DoctorAppointments() {
         return 'bg-green-100 text-green-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
+      case 'expired':
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-yellow-100 text-yellow-800';
     }
   };
 
-  const filteredAppointments = appointments.filter(apt => 
-    filter === 'all' ? true : apt.status === filter
-  );
+  const updateAppointmentStatus = async (appointmentId: string, newStatus: 'completed' | 'cancelled') => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${API_URL}/appointments/${appointmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        // Refresh appointments list
+        fetchAppointments();
+      }
+    } catch (error) {
+      console.error('Failed to update appointment:', error);
+    }
+  };
+
+  const isToday = (dateString: string) => {
+    const today = new Date();
+    const appointmentDate = new Date(dateString);
+    return today.toDateString() === appointmentDate.toDateString();
+  };
+
+  const isUpcoming = (dateString: string) => {
+    const today = new Date();
+    const appointmentDate = new Date(dateString);
+    return appointmentDate > today && !isToday(dateString);
+  };
+
+  const isPast = (dateString: string) => {
+    const today = new Date();
+    const appointmentDate = new Date(dateString);
+    return appointmentDate < today && !isToday(dateString);
+  };
+
+  // Check if appointment is expired (past date and still scheduled)
+  const isExpired = (appointment: Appointment) => {
+    return isPast(appointment.date) && appointment.status === 'scheduled';
+  };
+
+  // Get effective status - show as expired if past date and not marked
+  const getEffectiveStatus = (appointment: Appointment): string => {
+    if (isExpired(appointment)) {
+      return 'expired';
+    }
+    return appointment.status;
+  };
+
+  const todayAppointments = appointments.filter(apt => isToday(apt.date) && apt.status === 'scheduled');
+  const upcomingAppointments = appointments.filter(apt => isUpcoming(apt.date) && apt.status === 'scheduled');
+  const pastAppointments = appointments.filter(apt => isPast(apt.date));
 
   if (loading) {
     return (
@@ -222,16 +279,16 @@ export default function DoctorAppointments() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
         {/* Notifications */}
         <NotificationBell notifications={notifications} onClear={clearNotification} />
 
         {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-gray-900">My Appointments</h1>
+        <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Appointments</h1>
               <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
                 isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
               }`}>
@@ -249,138 +306,173 @@ export default function DoctorAppointments() {
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
           </button>
         </div>
 
-        {/* Filter Buttons */}
-        <div className="mb-6 flex gap-2">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === 'all' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            All ({appointments.length})
-          </button>
-          <button
-            onClick={() => setFilter('scheduled')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === 'scheduled' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            Scheduled ({appointments.filter(a => a.status === 'scheduled').length})
-          </button>
-          <button
-            onClick={() => setFilter('completed')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === 'completed' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            Completed ({appointments.filter(a => a.status === 'completed').length})
-          </button>
-          <button
-            onClick={() => setFilter('cancelled')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === 'cancelled' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            Cancelled ({appointments.filter(a => a.status === 'cancelled').length})
-          </button>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-600">Today&apos;s Appointments</h3>
+              <Clock className="h-5 w-5 text-blue-600" />
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{todayAppointments.length}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-600">Upcoming</h3>
+              <Calendar className="h-5 w-5 text-green-600" />
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{upcomingAppointments.length}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-600">Completed</h3>
+              <CheckCircle className="h-5 w-5 text-purple-600" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{appointments.filter(a => a.status === 'completed').length}</p>
+          </div>
         </div>
 
-        {/* Appointments List */}
-        <div className="bg-white rounded-lg shadow">
-          {filteredAppointments.length > 0 ? (
-            <div className="divide-y">
-              {filteredAppointments.map((appointment) => {
-                // Safety check for patient data
+        {/* Today's Appointments Section */}
+        {todayAppointments.length > 0 && (
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Today&apos;s Appointments</h2>
+            <div className="bg-white rounded-lg shadow divide-y">
+              {todayAppointments.map((appointment) => (
+                <div key={appointment._id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {appointment.patient?.name || 'Unknown Patient'}
+                          </h3>
+                          <p className="text-sm text-gray-600">{appointment.time}</p>
+                        </div>
+                      </div>
+                      <div className="ml-13">
+                        <p className="text-sm text-gray-700 mb-2">{appointment.reason}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => updateAppointmentStatus(appointment._id, 'completed')}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                      >
+                        Mark Visited
+                      </button>
+                      <button
+                        onClick={() => updateAppointmentStatus(appointment._id, 'cancelled')}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Upcoming Appointments Section */}
+        {upcomingAppointments.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Upcoming Appointments</h2>
+            <div className="bg-white rounded-lg shadow divide-y">
+              {upcomingAppointments.map((appointment) => (
+                <div key={appointment._id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {appointment.patient?.name || 'Unknown Patient'}
+                          </h3>
+                          <p className="text-sm text-gray-600">{formatDate(appointment.date)} at {appointment.time}</p>
+                        </div>
+                      </div>
+                      <div className="ml-13">
+                        <p className="text-sm text-gray-700">{appointment.reason}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => updateAppointmentStatus(appointment._id, 'cancelled')}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Previous Appointments Section */}
+        {pastAppointments.length > 0 && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Previous Appointments</h2>
+            <div className="bg-white rounded-lg shadow divide-y">
+              {pastAppointments.map((appointment) => {
                 const patientName = appointment.patient?.name || 'Unknown Patient';
-                const patientEmail = appointment.patient?.email || 'No email';
-                const patientId = appointment.patient?.patientId || '';
+                const effectiveStatus = getEffectiveStatus(appointment);
                 
                 return (
                   <div key={appointment._id} className="p-6 hover:bg-gray-50 transition-colors">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        {/* Patient Info */}
                         <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <User className="h-5 w-5 text-blue-600" />
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            effectiveStatus === 'expired' ? 'bg-orange-100' : 'bg-gray-100'
+                          }`}>
+                            <User className={`h-5 w-5 ${
+                              effectiveStatus === 'expired' ? 'text-orange-600' : 'text-gray-600'
+                            }`} />
                           </div>
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900">
-                              {patientName}
-                            </h3>
-                            <p className="text-sm text-gray-600">{patientEmail}</p>
-                            {patientId && (
-                              <p className="text-xs text-gray-500">ID: {patientId}</p>
-                            )}
+                            <h3 className="text-lg font-semibold text-gray-900">{patientName}</h3>
+                            <p className="text-sm text-gray-600">{formatDate(appointment.date)} at {appointment.time}</p>
                           </div>
                         </div>
-
-                        {/* Appointment Details */}
-                        <div className="grid grid-cols-2 gap-4 ml-13">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-700">{formatDate(appointment.date)}</span>
-                          </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-700">{appointment.time}</span>
+                        <div className="ml-13">
+                          <p className="text-sm text-gray-700">{appointment.reason}</p>
+                          {effectiveStatus === 'expired' && (
+                            <p className="text-xs text-orange-600 mt-1 font-medium">⚠️ Not marked - Auto-expired</p>
+                          )}
                         </div>
                       </div>
-
-                      {/* Reason */}
-                      <div className="mt-3 ml-13">
-                        <div className="flex items-start gap-2">
-                          <FileText className="h-4 w-4 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Reason for visit:</p>
-                            <p className="text-sm text-gray-600">{appointment.reason}</p>
-                          </div>
-                        </div>
+                      <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${getStatusColor(effectiveStatus)}`}>
+                        {getStatusIcon(effectiveStatus)}
+                        <span className="text-sm font-medium capitalize">{effectiveStatus}</span>
                       </div>
-                    </div>
-
-                    {/* Status Badge */}
-                    <div className="flex flex-col items-end gap-2">
-                      <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${getStatusColor(appointment.status)}`}>
-                        {getStatusIcon(appointment.status)}
-                        <span className="text-sm font-medium capitalize">{appointment.status}</span>
-                      </div>
-                      <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                        View Details
-                      </button>
                     </div>
                   </div>
-                </div>
-              );
+                );
               })}
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No appointments found</h3>
-              <p className="text-gray-600">
-                {filter === 'all' 
-                  ? 'You don\'t have any appointments yet.'
-                  : `No ${filter} appointments found.`}
-              </p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {todayAppointments.length === 0 && upcomingAppointments.length === 0 && pastAppointments.length === 0 && (
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No appointments found</h3>
+            <p className="text-gray-600">You don&apos;t have any appointments yet.</p>
+          </div>
+        )}
       </div>
     </div>
   );
