@@ -17,10 +17,177 @@ import {
   WifiOff,
   User as UserIcon,
   Settings,
-  Pill
+  Pill,
+  FileText,
+  Activity
 } from 'lucide-react';
 import { useSocket } from '../../../contexts/SocketContext';
 import { NotificationBell } from '../../../components/NotificationBell';
+
+interface Report {
+  _id: string;
+  reportType: string;
+  reportTitle: string;
+  testDate: string;
+  cloudinaryUrl: string;
+  aiProcessed: boolean;
+  extractedData: Record<string, string>;
+  metrics: {
+    hemoglobin?: string;
+    bloodSugar?: string;
+    cholesterol?: string;
+    bloodPressure?: string;
+  };
+  status: string;
+  createdAt: string;
+}
+
+function PatientReportsSection({ userId }: { userId: string }) {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (userId) {
+      fetchReports();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  const fetchReports = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${API_URL}/reports/my-reports`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const reportsData = result.data || result;
+        setReports(reportsData.slice(0, 3)); // Show only latest 3
+      }
+    } catch (error) {
+      console.error('Failed to fetch reports:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="text-gray-600 mt-2">Loading reports...</p>
+      </div>
+    );
+  }
+
+  if (reports.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-600 mb-4">No medical reports yet</p>
+        <Link
+          href="/upload-report"
+          className="text-blue-600 hover:text-blue-700 font-medium"
+        >
+          Upload your first report
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {reports.map((report) => (
+        <div key={report._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="h-4 w-4 text-blue-600" />
+                <h3 className="font-semibold text-gray-900">{report.reportTitle}</h3>
+                <span className={`px-2 py-1 rounded-full text-xs ${
+                  report.aiProcessed
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {report.aiProcessed ? 'Processed' : 'Processing'}
+                </span>
+              </div>
+              <p className="text-sm text-blue-600 mb-2">{report.reportType}</p>
+              <div className="space-y-1 text-sm text-gray-600">
+                <p className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Test Date: {new Date(report.testDate).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </p>
+                
+                {/* Display extracted metrics */}
+                {report.aiProcessed && report.metrics && Object.keys(report.metrics).length > 0 && (
+                  <div className="mt-2 bg-green-50 p-3 rounded-lg">
+                    <p className="font-medium text-gray-900 mb-2 flex items-center">
+                      <Activity className="h-4 w-4 mr-2" />
+                      Key Metrics:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {report.metrics.hemoglobin && (
+                        <div>
+                          <span className="text-gray-600">Hemoglobin:</span>
+                          <span className="ml-1 font-medium text-gray-900">{report.metrics.hemoglobin}</span>
+                        </div>
+                      )}
+                      {report.metrics.bloodSugar && (
+                        <div>
+                          <span className="text-gray-600">Blood Sugar:</span>
+                          <span className="ml-1 font-medium text-gray-900">{report.metrics.bloodSugar}</span>
+                        </div>
+                      )}
+                      {report.metrics.cholesterol && (
+                        <div>
+                          <span className="text-gray-600">Cholesterol:</span>
+                          <span className="ml-1 font-medium text-gray-900">{report.metrics.cholesterol}</span>
+                        </div>
+                      )}
+                      {report.metrics.bloodPressure && (
+                        <div>
+                          <span className="text-gray-600">Blood Pressure:</span>
+                          <span className="ml-1 font-medium text-gray-900">{report.metrics.bloodPressure}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <a
+              href={report.cloudinaryUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium ml-4"
+            >
+              View Report
+            </a>
+          </div>
+        </div>
+      ))}
+      <div className="text-center pt-4">
+        <Link
+          href="/patient/records"
+          className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+        >
+          View All Reports →
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 interface UserData {
   _id: string;
@@ -421,6 +588,17 @@ export default function PatientDashboard() {
               </Link>
             </div>
           )}
+        </div>
+
+        {/* My Medical Reports */}
+        <div className="mt-8 bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">My Medical Reports</h2>
+            <Link href="/patient/records" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+              View All
+            </Link>
+          </div>
+          <PatientReportsSection userId={user?._id || ''} />
         </div>
 
         {/* My Prescriptions */}

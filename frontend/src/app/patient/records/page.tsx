@@ -86,6 +86,12 @@ export default function MedicalRecords() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadFormData, setUploadFormData] = useState({
+    recordName: '',
+    category: 'Lab Reports',
+    date: ''
+  });
   const [editFormData, setEditFormData] = useState<EditFormData>({
     name: '',
     phone: '',
@@ -943,6 +949,8 @@ export default function MedicalRecords() {
                   </label>
                   <input
                     type="text"
+                    value={uploadFormData.recordName}
+                    onChange={(e) => setUploadFormData({ ...uploadFormData, recordName: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter record name"
                   />
@@ -952,7 +960,11 @@ export default function MedicalRecords() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Category
                   </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                  <select 
+                    value={uploadFormData.category}
+                    onChange={(e) => setUploadFormData({ ...uploadFormData, category: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
                     {categories.slice(1).map((category) => (
                       <option key={category} value={category}>
                         {category}
@@ -967,30 +979,83 @@ export default function MedicalRecords() {
                   </label>
                   <input
                     type="date"
+                    value={uploadFormData.date}
+                    onChange={(e) => setUploadFormData({ ...uploadFormData, date: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    File
+                    File {selectedFile && <span className="text-green-600 text-sm">✓ {selectedFile.name}</span>}
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600">Drop files here or click to browse</p>
-                    <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG up to 10MB</p>
-                  </div>
+                  <label htmlFor="file-upload" className="cursor-pointer">
+                    <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                      selectedFile ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-blue-400'
+                    }`}>
+                      {selectedFile ? (
+                        <>
+                          <FileText className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                          <p className="text-sm text-green-600 font-medium">{selectedFile.name}</p>
+                          <p className="text-xs text-gray-500 mt-1">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                          <p className="text-xs text-blue-600 mt-2 cursor-pointer hover:underline">Click to change file</p>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-600">Drop files here or click to browse</p>
+                          <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG up to 10MB</p>
+                        </>
+                      )}
+                    </div>
+                  </label>
+                  <input
+                    id="file-upload"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 10 * 1024 * 1024) {
+                          toast.error('File size must be less than 10MB');
+                          return;
+                        }
+                        setSelectedFile(file);
+                        toast.success('File selected: ' + file.name);
+                      }
+                    }}
+                  />
                 </div>
               </div>
               
               <div className="flex space-x-3 mt-6">
                 <button
-                  onClick={() => setShowUploadModal(false)}
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setSelectedFile(null);
+                    setUploadFormData({ recordName: '', category: 'Lab Reports', date: '' });
+                  }}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
-                <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <button 
+                  onClick={() => {
+                    if (!selectedFile) {
+                      toast.error('Please select a file');
+                      return;
+                    }
+                    if (!uploadFormData.recordName || !uploadFormData.date) {
+                      toast.error('Please fill in all required fields');
+                      return;
+                    }
+                    toast.success('Upload functionality - redirecting to upload page...');
+                    router.push('/upload-report');
+                  }}
+                  disabled={!selectedFile || !uploadFormData.recordName || !uploadFormData.date}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   Upload
                 </button>
               </div>

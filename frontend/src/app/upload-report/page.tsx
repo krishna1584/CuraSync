@@ -37,7 +37,7 @@ export default function UploadReportPage() {
   const [reportData, setReportData] = useState({
     title: '',
     description: '',
-    reportType: 'Lab Report',
+    reportType: 'Blood Test',
     reportDate: '',
     tags: [] as string[],
     isPublic: false
@@ -48,18 +48,14 @@ export default function UploadReportPage() {
   const [loading, setLoading] = useState(true);
 
   const reportTypes = [
-    'Lab Report',
-    'X-Ray',
-    'CT Scan',
-    'MRI',
-    'Ultrasound',
-    'ECG',
     'Blood Test',
     'Urine Test',
-    'Prescription',
-    'Discharge Summary',
-    'Medical Certificate',
-    'Vaccination Record',
+    'X-Ray',
+    'MRI',
+    'CT Scan',
+    'Ultrasound',
+    'ECG',
+    'Pathology',
     'Other'
   ];
 
@@ -195,17 +191,16 @@ export default function UploadReportPage() {
     try {
       // Create FormData for file upload
       const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('patientId', selectedPatient._id);
-      formData.append('title', reportData.title);
-      formData.append('description', reportData.description);
+      formData.append('reportFile', selectedFile);
+      formData.append('patientId', (selectedPatient._id || selectedPatient.patientId) as string);
+      formData.append('reportTitle', reportData.title);
       formData.append('reportType', reportData.reportType);
-      formData.append('reportDate', reportData.reportDate);
-      formData.append('tags', JSON.stringify(reportData.tags));
-      formData.append('isPublic', reportData.isPublic.toString());
+      formData.append('testDate', reportData.reportDate);
+      formData.append('notes', reportData.description || '');
 
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/reports/upload', {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${API_URL}/api/reports/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -216,12 +211,12 @@ export default function UploadReportPage() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Report uploaded successfully!');
+        toast.success('Report uploaded successfully! AI is extracting data...');
         // Reset form
         setReportData({
           title: '',
           description: '',
-          reportType: 'Lab Report',
+          reportType: 'Blood Test',
           reportDate: '',
           tags: [],
           isPublic: false
@@ -236,7 +231,8 @@ export default function UploadReportPage() {
       } else {
         toast.error(data.message || 'Upload failed');
       }
-    } catch {
+    } catch (error) {
+      console.error('Upload error:', error);
       toast.error('Network error. Please try again.');
     } finally {
       setUploading(false);
