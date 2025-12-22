@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { API_URL } from '@/lib/config';
@@ -76,11 +76,7 @@ export default function PatientProfile() {
   });
   const router = useRouter();
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -116,7 +112,15 @@ export default function PatientProfile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   const handleEditClick = () => {
     if (!user) return;

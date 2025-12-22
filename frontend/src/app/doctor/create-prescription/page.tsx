@@ -187,7 +187,7 @@ function CreatePrescriptionForm() {
         symptoms: symptoms.trim() || undefined,
         medications: validMedications,
         vitalSigns: Object.fromEntries(
-          Object.entries(vitalSigns).filter(([_, v]) => v.trim())
+          Object.entries(vitalSigns).filter(([, v]) => v.trim())
         ),
         labTests: labTests.filter(test => test.trim()),
         followUpDate: followUpDate || undefined,

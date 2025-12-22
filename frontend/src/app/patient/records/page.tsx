@@ -1041,7 +1041,7 @@ export default function MedicalRecords() {
                   Cancel
                 </button>
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     if (!selectedFile) {
                       toast.error('Please select a file');
                       return;
@@ -1050,8 +1050,47 @@ export default function MedicalRecords() {
                       toast.error('Please fill in all required fields');
                       return;
                     }
-                    toast.success('Upload functionality - redirecting to upload page...');
-                    router.push('/upload-report');
+                    
+                    try {
+                      const formData = new FormData();
+                      formData.append('reportFile', selectedFile);
+                      formData.append('patientId', user?._id || '');
+                      formData.append('reportTitle', uploadFormData.recordName);
+                      formData.append('reportType', uploadFormData.category);
+                      formData.append('testDate', uploadFormData.date);
+                      formData.append('notes', '');
+
+                      const token = localStorage.getItem('token');
+                      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+                      
+                      const response = await fetch(`${API_URL}/api/reports/upload`, {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: formData
+                      });
+
+                      const data = await response.json();
+
+                      if (data.success) {
+                        toast.success('Report uploaded successfully! AI is extracting data...');
+                        setShowUploadModal(false);
+                        setSelectedFile(null);
+                        setUploadFormData({
+                          recordName: '',
+                          category: 'Lab Reports',
+                          date: ''
+                        });
+                        // Refresh the page data if needed
+                        window.location.reload();
+                      } else {
+                        toast.error(data.message || 'Upload failed');
+                      }
+                    } catch (error) {
+                      console.error('Upload error:', error);
+                      toast.error('Network error. Please try again.');
+                    }
                   }}
                   disabled={!selectedFile || !uploadFormData.recordName || !uploadFormData.date}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"

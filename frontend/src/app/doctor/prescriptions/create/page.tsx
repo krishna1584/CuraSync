@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_URL } from '@/lib/config';
 import { ArrowLeft, Plus, Trash2, Save } from 'lucide-react';
@@ -50,18 +50,7 @@ function CreatePrescriptionContent() {
     notes: ''
   });
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  useEffect(() => {
-    if (patientId && doctorId) {
-      fetchPatientDetails();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId, doctorId]);
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -94,7 +83,17 @@ function CreatePrescriptionContent() {
       console.error('Auth check failed:', error);
       router.push('/auth/login');
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    if (patientId && doctorId) {
+      fetchPatientDetails();
+    }
+  }, [patientId, doctorId]);
 
   const fetchPatientDetails = async () => {
     try {

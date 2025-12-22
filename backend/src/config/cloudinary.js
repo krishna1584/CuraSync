@@ -21,12 +21,17 @@ if (process.env.CLOUDINARY_URL) {
 const uploadToCloudinary = async (fileBuffer, fileName, folder = 'medical-reports') => {
   try {
     return new Promise((resolve, reject) => {
+      // Determine resource type based on file
+      const isPdf = fileName.toLowerCase().endsWith('.pdf');
+      const resourceType = isPdf ? 'raw' : 'image';
+      
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: folder,
-          resource_type: 'auto', // Automatically detect file type (image, pdf, etc.)
-          public_id: `${Date.now()}-${fileName}`,
-          format: 'pdf', // Force format if needed
+          resource_type: resourceType,
+          public_id: `${Date.now()}-${fileName.replace(/\.[^/.]+$/, '')}`, // Remove extension from public_id
+          access_mode: 'public',
+          invalidate: true
         },
         (error, result) => {
           if (error) {

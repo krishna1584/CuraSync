@@ -46,6 +46,7 @@ export default function UploadReportPage() {
   const [tagInput, setTagInput] = useState('');
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fileInputKey, setFileInputKey] = useState(Date.now());
 
   const reportTypes = [
     'Blood Test',
@@ -72,16 +73,23 @@ export default function UploadReportPage() {
         return;
       }
 
-      const response = await fetch('/api/auth/verify', {
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${BASE_URL}/api/auth/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include'
       });
 
       if (response.ok) {
         const result = await response.json();
-        const userData = result.data?.user || result;
-        setUser(userData);
+        const userData = result.data?.user || result.user || result;
+        setUser({
+          id: userData._id || userData.id,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role
+        });
         
         // If admin/doctor/staff, fetch patients list
         if (['admin', 'doctor', 'nurse', 'receptionist'].includes(userData.role)) {
@@ -89,7 +97,8 @@ export default function UploadReportPage() {
         } else if (userData.role === 'patient') {
           // For patients, they can only upload for themselves
           setSelectedPatient({
-            _id: userData.id,
+            _id: userData._id || userData.id,
+            patientId: userData.patientId,
             name: userData.name,
             email: userData.email
           });
@@ -108,15 +117,20 @@ export default function UploadReportPage() {
   const fetchPatients = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/users/patients', {
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${BASE_URL}/api/users`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include'
       });
 
       if (response.ok) {
         const result = await response.json();
-        setPatients(result.data || result);
+        const allUsers: Array<{ role: string; _id: string; name: string; email: string; patientId?: string }> = result.data || result;
+        // Filter only patients
+        const patientsList = allUsers.filter((u) => u.role === 'patient');
+        setPatients(patientsList);
       }
     } catch (error) {
       console.error('Failed to fetch patients:', error);
@@ -199,8 +213,8 @@ export default function UploadReportPage() {
       formData.append('notes', reportData.description || '');
 
       const token = localStorage.getItem('token');
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${API_URL}/api/reports/upload`, {
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${BASE_URL}/api/reports/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -222,8 +236,10 @@ export default function UploadReportPage() {
           isPublic: false
         });
         setSelectedFile(null);
+        setFileInputKey(Date.now()); // Reset file input
+        
         if (user?.role === 'patient') {
-          router.push('/patient/records');
+          router.push('/patient/dashboard');
         } else {
           // Reset for staff to upload another
           setSelectedPatient(null);
@@ -322,6 +338,7 @@ export default function UploadReportPage() {
                 </label>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
                   <input
+                    key={fileInputKey}
                     type="file"
                     onChange={handleFileSelect}
                     accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"

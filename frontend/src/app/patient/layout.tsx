@@ -21,6 +21,7 @@ import {
 const navigation = [
   { name: 'Dashboard', href: '/patient/dashboard', icon: LayoutDashboard },
   { name: 'Appointments', href: '/patient/appointments', icon: Calendar },
+  { name: 'Upload Report', href: '/upload-report', icon: FileText },
   { name: 'Prescriptions', href: '/patient/prescriptions', icon: Pill },
   { name: 'Medical Records', href: '/patient/records', icon: FileText },
   { name: 'Lab Results', href: '/patient/lab-results', icon: TestTube },

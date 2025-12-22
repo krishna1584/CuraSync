@@ -93,7 +93,9 @@ const uploadReport = async (req, res) => {
     await report.save();
 
     // Extract data using AI in background (don't wait for it)
-    extractDataInBackground(report._id, cloudinaryResult.secure_url, reportType);
+    const io = req.app.get('io');
+    const connectedUsers = req.app.get('connectedUsers');
+    extractDataInBackground(report._id, cloudinaryResult.secure_url, reportType, io, connectedUsers);
 
     res.status(201).json({
       success: true,
@@ -114,7 +116,7 @@ const uploadReport = async (req, res) => {
 /**
  * Background AI extraction (async)
  */
-const extractDataInBackground = async (reportId, cloudinaryUrl, reportType) => {
+const extractDataInBackground = async (reportId, cloudinaryUrl, reportType, io = null, connectedUsers = null) => {
   try {
     console.log('Starting AI extraction for report:', reportId);
     
@@ -129,15 +131,40 @@ const extractDataInBackground = async (reportId, cloudinaryUrl, reportType) => {
       );
 
       // Update report with extracted data
-      await Report.findByIdAndUpdate(reportId, {
+      const updatedReport = await Report.findByIdAndUpdate(reportId, {
         extractedData: structured,
         metrics: metrics,
         aiProcessed: true,
         status: 'processed',
         summary: extractionResult.data.notes || extractionResult.data.impression || ''
-      });
+      }, { new: true }).populate('patient', 'name email patientId');
 
       console.log('AI extraction completed for report:', reportId);
+      
+      // Notify patient via Socket.IO
+      try {
+        if (io && connectedUsers && updatedReport) {
+          const patientId = updatedReport.patient._id.toString();
+          const userConnection = connectedUsers[patientId];
+          
+          if (userConnection) {
+            console.log(`📤 Sending report_processed notification to ${updatedReport.patient.name}`);
+            io.to(userConnection.socketId).emit('report_processed', {
+              reportId: updatedReport._id,
+              reportTitle: updatedReport.reportTitle,
+              reportType: updatedReport.reportType,
+              metrics: updatedReport.metrics,
+              message: `Your ${updatedReport.reportType} report has been processed`,
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            console.log(`📭 Patient ${updatedReport.patient.name} not connected to receive notification`);
+          }
+        }
+      } catch (socketError) {
+        console.error('Socket notification error:', socketError);
+        // Don't fail the entire process if socket notification fails
+      }
     } else {
       // Update with error
       await Report.findByIdAndUpdate(reportId, {

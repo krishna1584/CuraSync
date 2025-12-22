@@ -7,7 +7,6 @@ import { User } from '../../../types';
 import { API_URL } from '@/lib/config';
 import { 
   Calendar, 
-  Upload, 
   TestTube,
   LogOut,
   Stethoscope,
@@ -31,13 +30,20 @@ interface Report {
   testDate: string;
   cloudinaryUrl: string;
   aiProcessed: boolean;
-  extractedData: Record<string, string>;
+  extractedData: Record<string, string | number | boolean>;
   metrics: {
     hemoglobin?: string;
     bloodSugar?: string;
     cholesterol?: string;
     bloodPressure?: string;
+    heartRate?: string;
+    temperature?: string;
+    weight?: string;
+    height?: string;
+    bmi?: string;
   };
+  summary?: string;
+  notes?: string;
   status: string;
   createdAt: string;
 }
@@ -45,6 +51,7 @@ interface Report {
 function PatientReportsSection({ userId }: { userId: string }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const { socket } = useSocket();
 
   useEffect(() => {
     if (userId) {
@@ -52,6 +59,36 @@ function PatientReportsSection({ userId }: { userId: string }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  // Listen for report processing completion
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleReportProcessed = (data: { reportId: string }) => {
+      console.log('📥 Report processed notification received:', data);
+      // Refresh reports to show updated data
+      fetchReports();
+    };
+
+    socket.on('report_processed', handleReportProcessed);
+
+    return () => {
+      socket.off('report_processed', handleReportProcessed);
+    };
+  }, [socket]);
+
+  // Auto-refresh for pending reports (fallback if socket fails)
+  useEffect(() => {
+    const hasPendingReports = reports.some(r => !r.aiProcessed);
+    if (!hasPendingReports) return;
+
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refreshing reports (pending reports detected)');
+      fetchReports();
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [reports]);
 
   const fetchReports = async () => {
     try {
@@ -129,39 +166,103 @@ function PatientReportsSection({ userId }: { userId: string }) {
                   })}
                 </p>
                 
+                {/* Display AI Summary */}
+                {report.aiProcessed && report.summary && (
+                  <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <p className="font-medium text-blue-900 mb-1 text-sm">AI Summary:</p>
+                    <p className="text-sm text-blue-800 leading-relaxed">{report.summary}</p>
+                  </div>
+                )}
+
                 {/* Display extracted metrics */}
                 {report.aiProcessed && report.metrics && Object.keys(report.metrics).length > 0 && (
-                  <div className="mt-2 bg-green-50 p-3 rounded-lg">
-                    <p className="font-medium text-gray-900 mb-2 flex items-center">
+                  <div className="mt-3 bg-green-50 p-3 rounded-lg border border-green-100">
+                    <p className="font-medium text-gray-900 mb-2 flex items-center text-sm">
                       <Activity className="h-4 w-4 mr-2" />
                       Key Metrics:
                     </p>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                       {report.metrics.hemoglobin && (
-                        <div>
+                        <div className="flex justify-between items-center bg-white px-2 py-1 rounded">
                           <span className="text-gray-600">Hemoglobin:</span>
-                          <span className="ml-1 font-medium text-gray-900">{report.metrics.hemoglobin}</span>
+                          <span className="font-medium text-gray-900">{report.metrics.hemoglobin}</span>
                         </div>
                       )}
                       {report.metrics.bloodSugar && (
-                        <div>
+                        <div className="flex justify-between items-center bg-white px-2 py-1 rounded">
                           <span className="text-gray-600">Blood Sugar:</span>
-                          <span className="ml-1 font-medium text-gray-900">{report.metrics.bloodSugar}</span>
+                          <span className="font-medium text-gray-900">{report.metrics.bloodSugar}</span>
                         </div>
                       )}
                       {report.metrics.cholesterol && (
-                        <div>
+                        <div className="flex justify-between items-center bg-white px-2 py-1 rounded">
                           <span className="text-gray-600">Cholesterol:</span>
-                          <span className="ml-1 font-medium text-gray-900">{report.metrics.cholesterol}</span>
+                          <span className="font-medium text-gray-900">{report.metrics.cholesterol}</span>
                         </div>
                       )}
                       {report.metrics.bloodPressure && (
-                        <div>
+                        <div className="flex justify-between items-center bg-white px-2 py-1 rounded">
                           <span className="text-gray-600">Blood Pressure:</span>
-                          <span className="ml-1 font-medium text-gray-900">{report.metrics.bloodPressure}</span>
+                          <span className="font-medium text-gray-900">{report.metrics.bloodPressure}</span>
+                        </div>
+                      )}
+                      {report.metrics.heartRate && (
+                        <div className="flex justify-between items-center bg-white px-2 py-1 rounded">
+                          <span className="text-gray-600">Heart Rate:</span>
+                          <span className="font-medium text-gray-900">{report.metrics.heartRate}</span>
+                        </div>
+                      )}
+                      {report.metrics.temperature && (
+                        <div className="flex justify-between items-center bg-white px-2 py-1 rounded">
+                          <span className="text-gray-600">Temperature:</span>
+                          <span className="font-medium text-gray-900">{report.metrics.temperature}</span>
+                        </div>
+                      )}
+                      {report.metrics.weight && (
+                        <div className="flex justify-between items-center bg-white px-2 py-1 rounded">
+                          <span className="text-gray-600">Weight:</span>
+                          <span className="font-medium text-gray-900">{report.metrics.weight}</span>
+                        </div>
+                      )}
+                      {report.metrics.height && (
+                        <div className="flex justify-between items-center bg-white px-2 py-1 rounded">
+                          <span className="text-gray-600">Height:</span>
+                          <span className="font-medium text-gray-900">{report.metrics.height}</span>
+                        </div>
+                      )}
+                      {report.metrics.bmi && (
+                        <div className="flex justify-between items-center bg-white px-2 py-1 rounded">
+                          <span className="text-gray-600">BMI:</span>
+                          <span className="font-medium text-gray-900">{report.metrics.bmi}</span>
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* Display all extracted data */}
+                {report.aiProcessed && report.extractedData && Object.keys(report.extractedData).length > 0 && (
+                  <div className="mt-3 bg-purple-50 p-3 rounded-lg border border-purple-100">
+                    <p className="font-medium text-gray-900 mb-2 flex items-center text-sm">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Extracted Details:
+                    </p>
+                    <div className="space-y-1.5 text-sm max-h-48 overflow-y-auto">
+                      {Object.entries(report.extractedData).map(([key, value]) => (
+                        <div key={key} className="flex justify-between items-start bg-white px-2 py-1.5 rounded">
+                          <span className="text-gray-600 capitalize font-medium">{key.replace(/_/g, ' ')}:</span>
+                          <span className="text-gray-900 ml-2 text-right flex-1">{String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Display notes if available */}
+                {report.notes && (
+                  <div className="mt-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <p className="font-medium text-gray-900 mb-1 text-sm">Notes:</p>
+                    <p className="text-sm text-gray-700">{report.notes}</p>
                   </div>
                 )}
               </div>

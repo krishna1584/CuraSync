@@ -1,8 +1,8 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 const axios = require('axios');
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize Gemini AI with new SDK
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
  * Extract medical data from report using Gemini AI
@@ -19,7 +19,21 @@ const extractMedicalData = async (cloudinaryUrl, reportType = 'general') => {
     });
 
     const fileBuffer = Buffer.from(response.data);
-    const mimeType = response.headers['content-type'] || 'application/pdf';
+    
+    // Determine MIME type from URL or headers
+    let mimeType = 'application/pdf'; // Default
+    if (cloudinaryUrl.includes('.pdf')) {
+      mimeType = 'application/pdf';
+    } else if (cloudinaryUrl.includes('.png')) {
+      mimeType = 'image/png';
+    } else if (cloudinaryUrl.includes('.jpg') || cloudinaryUrl.includes('.jpeg')) {
+      mimeType = 'image/jpeg';
+    } else if (response.headers['content-type'] && 
+               response.headers['content-type'] !== 'application/octet-stream') {
+      mimeType = response.headers['content-type'];
+    }
+
+    console.log('File MIME type:', mimeType);
 
     // Convert buffer to base64
     const base64Data = fileBuffer.toString('base64');
@@ -35,12 +49,25 @@ const extractMedicalData = async (cloudinaryUrl, reportType = 'general') => {
     // Create a detailed prompt based on report type
     const prompt = createPromptForReportType(reportType);
 
-    // Use Gemini 1.5 Flash model (free tier)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Use Gemini 2.5 Flash (new version)
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: prompt },
+            filePart
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 2048,
+      }
+    });
 
-    // Generate content
-    const result = await model.generateContent([prompt, filePart]);
-    const response_text = result.response.text();
+    const response_text = result.text;
 
     // Parse the JSON response
     let extractedData;
@@ -84,35 +111,89 @@ const extractMedicalData = async (cloudinaryUrl, reportType = 'general') => {
 const createPromptForReportType = (reportType) => {
   const basePrompt = `You are a medical data extraction specialist. Analyze this medical report and extract ALL relevant medical data into a structured JSON format.
 
-IMPORTANT: Return ONLY valid JSON, no additional text or explanation.
+IMPORTANT INSTRUCTIONS:
+1. Return ONLY valid JSON, no additional text or explanation.
+2. Extract ALL visible data including patient info, test parameters, values, units, and ranges.
+3. Use camelCase for field names (e.g., "patientName", "bloodSugar", "cholesterolTotal").
+4. Include units with values when available (e.g., "13.5 g/dL", "95 mg/dL").
+5. Preserve exact values and ranges from the report.
+6. If a value is marked as abnormal, note it in the value or add a "notes" field.
 
 Extract the following information if available:`;
 
   const specificPrompts = {
     'Blood Test': `${basePrompt}
-- Patient name
-- Test date
-- Hemoglobin (with unit)
-- RBC count
-- WBC count
-- Platelet count
-- Blood sugar/Glucose (fasting, random, or HbA1c)
-- Cholesterol (total, LDL, HDL, triglycerides)
-- Liver function (SGOT, SGPT, bilirubin)
-- Kidney function (creatinine, urea, uric acid)
-- Thyroid (TSH, T3, T4)
-- Any other blood parameters
-- Normal ranges mentioned
-- Any abnormal values highlighted
+- Patient name and demographics (age, gender if available)
+- Test date and lab name
+- Complete Blood Count (CBC):
+  - Hemoglobin (with unit and normal range)
+  - RBC count
+  - WBC count
+  - Platelet count
+  - Hematocrit
+  - MCV, MCH, MCHC
+- Blood Sugar/Glucose:
+  - Fasting glucose
+  - Random glucose
+  - HbA1c
+  - Postprandial glucose
+- Lipid Profile:
+  - Total cholesterol
+  - LDL cholesterol
+  - HDL cholesterol
+  - Triglycerides
+  - VLDL
+- Liver Function Tests (LFT):
+  - SGOT/AST
+  - SGPT/ALT
+  - Bilirubin (total, direct, indirect)
+  - Alkaline phosphatase
+  - Total protein, albumin, globulin
+- Kidney Function Tests (KFT):
+  - Creatinine
+  - Blood urea nitrogen (BUN)
+  - Uric acid
+  - Urea
+- Thyroid Function:
+  - TSH
+  - T3 (total and free)
+  - T4 (total and free)
+- Electrolytes:
+  - Sodium
+  - Potassium
+  - Chloride
+  - Calcium
+- Vitamins and minerals:
+  - Vitamin D
+  - Vitamin B12
+  - Iron, TIBC, Ferritin
+- Any other parameters visible in the report
+- Normal ranges for each parameter
+- Flagged abnormal values (mark with "H" for high, "L" for low if indicated)
+- Doctor's notes, impressions, or recommendations
 
 Return JSON format like:
 {
-  "patientName": "...",
-  "testDate": "...",
+  "patientName": "John Doe",
+  "age": "45 years",
+  "gender": "Male",
+  "testDate": "2024-01-15",
+  "labName": "City Diagnostics",
   "hemoglobin": "13.5 g/dL",
-  "bloodSugar": "95 mg/dL",
+  "hemoglobinRange": "13-17 g/dL",
+  "hemoglobinStatus": "Normal",
+  "fastingBloodSugar": "95 mg/dL",
+  "fastingBloodSugarRange": "70-100 mg/dL",
   "cholesterolTotal": "180 mg/dL",
-  "notes": "..."
+  "cholesterolTotalRange": "<200 mg/dL",
+  "ldlCholesterol": "110 mg/dL (H)",
+  "hdlCholesterol": "45 mg/dL",
+  "triglycerides": "150 mg/dL",
+  "sgotAst": "35 U/L",
+  "sgptAlt": "40 U/L",
+  "creatinine": "1.0 mg/dL",
+  "notes": "LDL cholesterol slightly elevated. Recommend dietary modifications.",
+  "impression": "Borderline dyslipidemia"
 }`,
 
     'X-Ray': `${basePrompt}
@@ -203,12 +284,17 @@ const structureExtractedData = (extractedData, reportType) => {
   const structured = {};
   const metrics = {};
 
-  // Common metrics mapping
+  // Common metrics mapping - extended list
   const metricKeys = [
     'hemoglobin', 'bloodSugar', 'glucose', 'cholesterol', 
     'bloodPressure', 'heartRate', 'temperature', 'weight', 
     'height', 'bmi', 'cholesterolTotal', 'cholesterolLDL', 
-    'cholesterolHDL', 'triglycerides'
+    'cholesterolHDL', 'triglycerides', 'hba1c', 'fastingBloodSugar',
+    'randomBloodSugar', 'postprandialBloodSugar', 'rbc', 'wbc',
+    'platelet', 'hematocrit', 'sgot', 'sgpt', 'ast', 'alt',
+    'creatinine', 'urea', 'uricAcid', 'bun', 'tsh', 't3', 't4',
+    'sodium', 'potassium', 'calcium', 'vitaminD', 'vitaminB12',
+    'iron', 'ferritin'
   ];
 
   for (const [key, value] of Object.entries(extractedData)) {

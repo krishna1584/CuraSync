@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { API_URL } from '@/lib/config';
@@ -75,19 +75,7 @@ export default function PatientSettings() {
   const [language, setLanguage] = useState('en');
   const [timezone, setTimezone] = useState('UTC');
 
-  useEffect(() => {
-    checkAuth();
-    // Load saved preferences from localStorage
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-    const savedLanguage = localStorage.getItem('language') || 'en';
-    const savedTimezone = localStorage.getItem('timezone') || 'UTC';
-    
-    setDarkMode(savedDarkMode);
-    setLanguage(savedLanguage);
-    setTimezone(savedTimezone);
-  }, []);
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -123,7 +111,19 @@ export default function PatientSettings() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    checkAuth();
+    // Load saved preferences from localStorage
+    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
+    const savedLanguage = localStorage.getItem('language') || 'en';
+    const savedTimezone = localStorage.getItem('timezone') || 'UTC';
+    
+    setDarkMode(savedDarkMode);
+    setLanguage(savedLanguage);
+    setTimezone(savedTimezone);
+  }, [checkAuth]);
 
   const handleSaveNotifications = async () => {
     setSaving(true);

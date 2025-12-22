@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/config';
 import { ArrowLeft, Pill, Calendar, User as UserIcon, FileText, Activity, AlertCircle } from 'lucide-react';
@@ -53,18 +53,7 @@ export default function PatientPrescriptions() {
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      fetchPrescriptions();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -99,7 +88,17 @@ export default function PatientPrescriptions() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    if (user) {
+      fetchPrescriptions();
+    }
+  }, [user]);
 
   const fetchPrescriptions = async () => {
     try {
