@@ -61,7 +61,11 @@ app.use(cors({
       return callback(null, true);
     }
     
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Check if origin matches allowed origins or Vercel preview URLs
+    const isAllowed = allowedOrigins.some(allowed => origin === allowed) || 
+                      origin.endsWith('.vercel.app');
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
       console.log('❌ Origin blocked:', origin);

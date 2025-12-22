@@ -7,6 +7,7 @@ import { Heart, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Navigation from '@/components/Navigation';
 import { API_URL } from '@/lib/config';
+import { setAuthToken, setUser } from '@/lib/auth';
 
 function LoginForm() {
   const router = useRouter();
@@ -68,8 +69,9 @@ function LoginForm() {
       const data = await response.json();
 
       if (data.success) {
-        // Store token in localStorage
-        localStorage.setItem('token', data.data.token);
+        // Store token and user in localStorage using auth utilities
+        setAuthToken(data.data.token);
+        setUser(data.data.user);
         
         toast.success('Login successful!');
         
