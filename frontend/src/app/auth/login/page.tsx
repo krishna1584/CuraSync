@@ -57,6 +57,9 @@ function LoginForm() {
     setIsLoading(true);
 
     try {
+      console.log('🔐 Attempting login to:', `${API_URL}/auth/login`);
+      console.log('📧 Email:', formData.email);
+      
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -66,7 +69,11 @@ function LoginForm() {
         body: JSON.stringify(formData),
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response ok:', response.ok);
+
       const data = await response.json();
+      console.log('📦 Response data:', data);
 
       if (data.success) {
         // Store token and user in localStorage using auth utilities
@@ -92,9 +99,11 @@ function LoginForm() {
             router.push('/dashboard');
         }
       } else {
+        console.error('❌ Login failed:', data.message);
         toast.error(data.message || 'Login failed');
       }
-    } catch {
+    } catch (error) {
+      console.error('❌ Network error:', error);
       toast.error('Network error. Please try again.');
     } finally {
       setIsLoading(false);
