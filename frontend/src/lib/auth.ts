@@ -1,8 +1,8 @@
 // Client-side auth utilities for frontend
 import { User } from '@/types';
 
-const TOKEN_KEY = 'curasync-auth-token';
-const USER_KEY = 'curasync-user';
+const TOKEN_KEY = 'token';
+const USER_KEY = 'user';
 
 export const setAuthToken = (token: string): void => {
   localStorage.setItem(TOKEN_KEY, token);
