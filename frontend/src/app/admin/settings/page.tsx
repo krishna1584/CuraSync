@@ -22,10 +22,12 @@ export default function AdminSettingsPage() {
 
   const checkAuth = useCallback(async () => {
     const token = localStorage.getItem('token');
-    const userRole = localStorage.getItem('role');
+    const userDataStr = localStorage.getItem('user');
+    const userData = userDataStr ? JSON.parse(userDataStr) : null;
+    const userRole = userData?.role;
 
-    if (!token || userRole !== 'admin') {
-      router.push('/auth/login');
+    if (!token || !['admin', 'nurse', 'receptionist'].includes(userRole)) {
+      router.push('/auth/login?role=admin');
       return;
     }
   }, [router]);
