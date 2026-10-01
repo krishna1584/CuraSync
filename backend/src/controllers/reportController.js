@@ -1,5 +1,6 @@
 const multer = require('multer');
 const Report = require('../models/Report');
+const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 const { extractMedicalData, structureExtractedData } = require('../utils/geminiService');
@@ -25,6 +26,19 @@ const upload = multer({
     }
   }
 });
+
+const isHospitalStaff = (role) => ['admin', 'nurse', 'receptionist'].includes(role);
+
+const doctorCanAccessPatient = async (doctorId, patientId) => (
+  Boolean(await Appointment.exists({ doctorId, patientId }))
+);
+
+const reportIsAccessible = async (report, user) => {
+  if (isHospitalStaff(user.role)) return true;
+  const patientId = report.patient._id || report.patient;
+  if (user.role === 'patient') return patientId.toString() === user._id.toString();
+  return user.role === 'doctor' && await doctorCanAccessPatient(user._id, patientId);
+};
 
 /**
  * Upload report with automatic AI data extraction
@@ -59,6 +73,17 @@ const uploadReport = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Patient not found'
+      });
+    }
+
+    const canUpload = isHospitalStaff(uploadedByRole) ||
+      (uploadedByRole === 'patient' && patient._id.toString() === uploadedBy.toString()) ||
+      (uploadedByRole === 'doctor' && await doctorCanAccessPatient(uploadedBy, patient._id));
+
+    if (!canUpload) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to upload a report for this patient'
       });
     }
 
@@ -199,6 +224,18 @@ const getAllReports = async (req, res) => {
     if (userRole === 'patient') {
       // Patients can only see their own reports
       query.patient = userId;
+    } else if (userRole === 'doctor') {
+      const patientIds = await Appointment.distinct('patientId', { doctorId: userId });
+      query.patient = { $in: patientIds };
+
+      if (patientId) {
+        const patient = await User.findOne({
+          $or: [{ _id: patientId }, { patientId: patientId }]
+        });
+        query.patient = patient && patientIds.some(id => id.toString() === patient._id.toString())
+          ? patient._id
+          : { $in: [] };
+      }
     } else if (patientId) {
       // Doctors/staff can filter by patient
       const patient = await User.findOne({ 
@@ -247,9 +284,6 @@ const getAllReports = async (req, res) => {
 const getReportById = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user._id;
-    const userRole = req.user.role;
-
     const report = await Report.findById(id)
       .populate('patient', 'name email patientId phone dateOfBirth gender')
       .populate('uploadedBy', 'name role')
@@ -262,8 +296,7 @@ const getReportById = async (req, res) => {
       });
     }
 
-    // Authorization check
-    if (userRole === 'patient' && report.patient._id.toString() !== userId.toString()) {
+    if (!(await reportIsAccessible(report, req.user))) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -339,6 +372,10 @@ const deleteReport = async (req, res) => {
       });
     }
 
+    if (!(await reportIsAccessible(report, req.user))) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
     // Delete from Cloudinary
     try {
       await deleteFromCloudinary(report.cloudinaryPublicId, 'raw');
@@ -392,6 +429,10 @@ const updateReport = async (req, res) => {
       });
     }
 
+    if (!(await reportIsAccessible(report, req.user))) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
     // Update report
     report.reviewNotes = reviewNotes || report.reviewNotes;
     report.status = status || report.status;
@@ -429,6 +470,18 @@ const getReportStats = async (req, res) => {
 
     if (userRole === 'patient') {
       query.patient = userId;
+    } else if (userRole === 'doctor') {
+      const patientIds = await Appointment.distinct('patientId', { doctorId: userId });
+      query.patient = { $in: patientIds };
+
+      if (patientId) {
+        const patient = await User.findOne({
+          $or: [{ _id: patientId }, { patientId: patientId }]
+        });
+        query.patient = patient && patientIds.some(id => id.toString() === patient._id.toString())
+          ? patient._id
+          : { $in: [] };
+      }
     } else if (patientId) {
       const patient = await User.findOne({ 
         $or: [{ _id: patientId }, { patientId: patientId }] 

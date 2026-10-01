@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { 
   Heart, 
   LayoutDashboard, 
@@ -21,7 +22,7 @@ import {
 const navigation = [
   { name: 'Dashboard', href: '/patient/dashboard', icon: LayoutDashboard },
   { name: 'Appointments', href: '/patient/appointments', icon: Calendar },
-  { name: 'Upload Report', href: '/upload-report', icon: FileText },
+  { name: 'Upload Report', href: '/patient/upload-report', icon: FileText },
   { name: 'Prescriptions', href: '/patient/prescriptions', icon: Pill },
   { name: 'Medical Records', href: '/patient/records', icon: FileText },
   { name: 'Lab Results', href: '/patient/lab-results', icon: TestTube },
@@ -36,6 +37,21 @@ export default function PatientLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<{name: string, patientId?: string} | null>(null);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    router.push('/auth/login');
+  };
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-100">
@@ -119,10 +135,10 @@ export default function PatientLayout({
                   <User className="h-6 w-6 text-blue-600" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-700">John Doe</p>
-                  <p className="text-xs text-gray-500">PAT000001</p>
+                  <p className="text-sm font-medium text-gray-700">{user?.name || 'Loading...'}</p>
+                  <p className="text-xs text-gray-500">{user?.patientId || ''}</p>
                 </div>
-                <button className="ml-auto p-1 text-gray-400 hover:text-gray-600">
+                <button onClick={handleLogout} className="ml-auto p-1 text-gray-400 hover:text-gray-600">
                   <LogOut className="h-5 w-5" />
                 </button>
               </div>

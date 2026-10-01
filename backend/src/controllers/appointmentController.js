@@ -1,10 +1,26 @@
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 
+const isHospitalStaff = (role) => ['admin', 'nurse', 'receptionist'].includes(role);
+
+const canAccessAppointment = (appointment, user) => {
+  if (isHospitalStaff(user.role)) return true;
+  return appointment.patientId._id?.toString() === user._id.toString() ||
+    appointment.patientId.toString() === user._id.toString() ||
+    appointment.doctorId._id?.toString() === user._id.toString() ||
+    appointment.doctorId.toString() === user._id.toString();
+};
+
 // Get all appointments
 const getAllAppointments = async (req, res) => {
   try {
-    const appointments = await Appointment.find()
+    const query = isHospitalStaff(req.user.role)
+      ? {}
+      : req.user.role === 'doctor'
+        ? { doctorId: req.user._id }
+        : { patientId: req.user._id };
+
+    const appointments = await Appointment.find(query)
       .populate('patientId', 'name email phone patientId')
       .populate('doctorId', 'name email specialization doctorId')
       .sort({ appointmentDate: 1 });
@@ -57,6 +73,10 @@ const getAppointmentById = async (req, res) => {
       });
     }
 
+    if (!canAccessAppointment(appointment, req.user)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Appointment fetched successfully',
@@ -90,6 +110,14 @@ const createAppointment = async (req, res) => {
         success: false,
         message: 'Patient, doctor, date, time slot, and reason are required'
       });
+    }
+
+    if (req.user.role === 'patient' && req.user._id.toString() !== patientId.toString()) {
+      return res.status(403).json({ success: false, message: 'Patients can only book appointments for themselves' });
+    }
+
+    if (req.user.role === 'doctor' && req.user._id.toString() !== doctorId.toString()) {
+      return res.status(403).json({ success: false, message: 'Doctors can only create their own appointments' });
     }
 
     // Check if patient exists
@@ -244,6 +272,19 @@ const updateAppointment = async (req, res) => {
     // Remove fields that shouldn't be updated directly
     delete updates._id;
 
+    const existingAppointment = await Appointment.findById(id);
+
+    if (!existingAppointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    if (!canAccessAppointment(existingAppointment, req.user) || (req.user.role === 'patient' && updates.status !== 'cancelled')) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
     const appointment = await Appointment.findByIdAndUpdate(
       id,
       updates,
@@ -311,7 +352,7 @@ const deleteAppointment = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const appointment = await Appointment.findByIdAndDelete(id);
+    const appointment = await Appointment.findById(id);
     
     if (!appointment) {
       return res.status(404).json({
@@ -319,6 +360,12 @@ const deleteAppointment = async (req, res) => {
         message: 'Appointment not found'
       });
     }
+
+    if (!canAccessAppointment(appointment, req.user)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    await Appointment.findByIdAndDelete(id);
 
     res.status(200).json({
       success: true,
@@ -338,6 +385,14 @@ const deleteAppointment = async (req, res) => {
 const getAppointmentsByPatient = async (req, res) => {
   try {
     const { patientId } = req.params;
+
+    if (req.user.role === 'patient' && req.user._id.toString() !== patientId) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    if (req.user.role === 'doctor' && !(await Appointment.exists({ patientId, doctorId: req.user._id }))) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
     
     const appointments = await Appointment.find({ patientId })
       .populate('doctorId', 'name specialization email')
@@ -381,6 +436,14 @@ const getAppointmentsByPatient = async (req, res) => {
 const getAppointmentsByDoctor = async (req, res) => {
   try {
     const { doctorId } = req.params;
+
+    if (req.user.role === 'doctor' && req.user._id.toString() !== doctorId) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    if (req.user.role === 'patient' && !(await Appointment.exists({ patientId: req.user._id, doctorId }))) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
     
     const appointments = await Appointment.find({ doctorId })
       .populate('patientId', 'name email phone')

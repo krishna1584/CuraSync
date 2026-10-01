@@ -79,16 +79,24 @@ export default function PatientAppointmentsPage() {
         credentials: 'include'
       });
 
-      if (verifyResponse.ok) {
-        const result = await verifyResponse.json();
-        const userData = result.data?.user || result.user || result;
-        setUser(userData);
+      if (!verifyResponse.ok) {
+        router.push('/auth/login');
+        return;
       }
 
-      const response = await fetch('/api/appointments', {
+      const result = await verifyResponse.json();
+      const userData = result.data?.user || result.user || result;
+      if (!userData?._id) {
+        router.push('/auth/login');
+        return;
+      }
+      setUser(userData);
+
+      const response = await fetch(`${API_URL}/appointments/patient/${userData._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include'
       });
 
       if (response.ok) {

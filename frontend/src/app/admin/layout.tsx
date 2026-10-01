@@ -20,7 +20,7 @@ import {
 const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Book Appointment', href: '/admin/book-for-patient', icon: Calendar },
-  { name: 'Upload Report', href: '/upload-report', icon: Upload },
+  { name: 'Upload Report', href: '/admin/upload-report', icon: Upload },
   { name: 'All Reports', href: '/admin/reports', icon: FileText },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/admin/settings', icon: Settings },

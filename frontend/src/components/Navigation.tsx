@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Heart, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { isAuthenticated, getUser, logout } from '@/lib/auth';
 
 interface NavigationProps {
   showAuthButtons?: boolean;
@@ -13,6 +14,16 @@ interface NavigationProps {
 export default function Navigation({ showAuthButtons = true, variant = 'default' }: NavigationProps) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuth, setIsAuth] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsAuth(isAuthenticated());
+    const user = getUser();
+    if (user) {
+      setUserRole(user.role);
+    }
+  }, []);
 
   const navLinks = [
     { href: '/#features', label: 'Features' },
@@ -58,18 +69,37 @@ export default function Navigation({ showAuthButtons = true, variant = 'default'
             
             {showAuthButtons && (
               <div className="flex items-center space-x-4">
-                <Link 
-                  href="/auth/login" 
-                  className="text-gray-700 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105"
-                >
-                  Sign In
-                </Link>
-                <Link 
-                  href="/auth/signup" 
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 animate-glow"
-                >
-                  Get Started
-                </Link>
+                {isAuth ? (
+                  <>
+                    <Link 
+                      href={userRole === 'doctor' ? '/doctor/dashboard' : userRole === 'admin' ? '/admin/dashboard' : '/patient/dashboard'} 
+                      className="text-gray-700 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105"
+                    >
+                      Dashboard
+                    </Link>
+                    <button 
+                      onClick={() => logout()}
+                      className="bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-2 rounded-full font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 animate-glow"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link 
+                      href="/auth/login" 
+                      className="text-gray-700 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105"
+                    >
+                      Sign In
+                    </Link>
+                    <Link 
+                      href="/auth/signup" 
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 animate-glow"
+                    >
+                      Get Started
+                    </Link>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -112,20 +142,40 @@ export default function Navigation({ showAuthButtons = true, variant = 'default'
               
               {showAuthButtons && (
                 <div className="flex flex-col space-y-3 px-4 pt-4 border-t border-gray-200">
-                  <Link 
-                    href="/auth/login" 
-                    className="text-center text-gray-700 hover:text-blue-600 transition-colors font-medium py-2"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Sign In
-                  </Link>
-                  <Link 
-                    href="/auth/signup" 
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full font-semibold text-center hover:shadow-lg transition-all duration-300"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Get Started
-                  </Link>
+                  {isAuth ? (
+                    <>
+                      <Link 
+                        href={userRole === 'doctor' ? '/doctor/dashboard' : userRole === 'admin' ? '/admin/dashboard' : '/patient/dashboard'} 
+                        className="text-center text-gray-700 hover:text-blue-600 transition-colors font-medium py-2"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        Dashboard
+                      </Link>
+                      <button 
+                        onClick={() => { setIsMobileMenuOpen(false); logout(); }}
+                        className="bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-full font-semibold text-center hover:shadow-lg transition-all duration-300"
+                      >
+                        Logout
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link 
+                        href="/auth/login" 
+                        className="text-center text-gray-700 hover:text-blue-600 transition-colors font-medium py-2"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        Sign In
+                      </Link>
+                      <Link 
+                        href="/auth/signup" 
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full font-semibold text-center hover:shadow-lg transition-all duration-300"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        Get Started
+                      </Link>
+                    </>
+                  )}
                 </div>
               )}
             </div>

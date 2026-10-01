@@ -13,22 +13,22 @@ const auth = async (req, res, next) => {
     }
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    console.log('🔑 Token decoded:', { userId: decoded.id, exp: decoded.exp });
+
     
     const user = await User.findById(decoded.id).select('-password');
     if (!user) {
-      console.log('❌ User not found for ID:', decoded.id);
+
       return res.status(401).json({ 
         success: false, 
         message: 'Token is not valid - user not found' 
       });
     }
 
-    console.log('✅ User authenticated:', user.name, user.role);
+
     req.user = user;
     next();
   } catch (error) {
-    console.log('❌ Auth middleware error:', error.message);
+    console.error('❌ Auth middleware error:', error.message);
     res.status(401).json({ 
       success: false, 
       message: 'Token is not valid' 

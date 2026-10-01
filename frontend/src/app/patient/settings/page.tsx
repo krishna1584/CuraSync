@@ -47,7 +47,7 @@ interface PasswordData {
 export default function PatientSettings() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'notifications' | 'security' | 'preferences'>('notifications');
+  const [activeTab, setActiveTab] = useState<'notifications' | 'security'>('notifications');
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
@@ -239,17 +239,6 @@ export default function PatientSettings() {
               >
                 <Lock className="h-4 w-4" />
                 Security
-              </button>
-              <button
-                onClick={() => setActiveTab('preferences')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 ${
-                  activeTab === 'preferences'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <Globe className="h-4 w-4" />
-                Preferences
               </button>
             </nav>
           </div>
@@ -464,84 +453,6 @@ export default function PatientSettings() {
                       <li>• Enable two-factor authentication (coming soon)</li>
                     </ul>
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Preferences Tab */}
-          {activeTab === 'preferences' && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">General Preferences</h2>
-              
-              <div className="space-y-6 max-w-md">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Theme
-                  </label>
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      {darkMode ? <Moon className="h-5 w-5 text-blue-600" /> : <Sun className="h-5 w-5 text-yellow-600" />}
-                      <span className="font-medium">{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={darkMode}
-                        onChange={(e) => setDarkMode(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">Dark mode is coming soon</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Language
-                  </label>
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="en">English</option>
-                    <option value="es">Spanish</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                    <option value="hi">Hindi</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Timezone
-                  </label>
-                  <select
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="UTC">UTC (Coordinated Universal Time)</option>
-                    <option value="America/New_York">Eastern Time (ET)</option>
-                    <option value="America/Chicago">Central Time (CT)</option>
-                    <option value="America/Denver">Mountain Time (MT)</option>
-                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                    <option value="Europe/London">London (GMT)</option>
-                    <option value="Asia/Kolkata">India Standard Time (IST)</option>
-                  </select>
-                </div>
-
-                <div className="flex justify-end pt-4">
-                  <button
-                    onClick={handleSavePreferences}
-                    disabled={saving}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    <Save className="h-4 w-4" />
-                    {saving ? 'Saving...' : 'Save Preferences'}
-                  </button>
                 </div>
               </div>
             </div>

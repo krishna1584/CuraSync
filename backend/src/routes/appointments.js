@@ -20,10 +20,10 @@ router.use(auth);
 router.get('/', getAllAppointments);                    // GET /api/appointments
 router.post('/', createAppointment);                    // POST /api/appointments
 router.get('/my-appointments', getMyAppointments);      // GET /api/appointments/my-appointments
+router.get('/patient/:patientId', getAppointmentsByPatient); // GET /api/appointments/patient/:patientId
+router.get('/doctor/:doctorId', getAppointmentsByDoctor);    // GET /api/appointments/doctor/:doctorId
 router.get('/:id', getAppointmentById);                 // GET /api/appointments/:id
 router.put('/:id', updateAppointment);                  // PUT /api/appointments/:id
 router.delete('/:id', deleteAppointment);               // DELETE /api/appointments/:id
-router.get('/patient/:patientId', getAppointmentsByPatient); // GET /api/appointments/patient/:patientId
-router.get('/doctor/:doctorId', getAppointmentsByDoctor);    // GET /api/appointments/doctor/:doctorId
 
 module.exports = router;
