@@ -94,6 +94,13 @@ const updateUser = async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
+    if (req.user.role !== 'admin' && req.user._id.toString() !== id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only update your own account'
+      });
+    }
+
     // Remove sensitive fields that shouldn't be updated directly
     delete updates.password;
     delete updates._id;

@@ -102,7 +102,8 @@ export default function AdminDashboard() {
 
       if (response.ok) {
         const data = await response.json();
-        setUser(data.user);
+        const verifiedUser = data.data?.user || data.user;
+        setUser(verifiedUser);
         fetchDashboardData();
       } else {
         localStorage.clear();
@@ -133,7 +134,8 @@ export default function AdminDashboard() {
         headers: { Authorization: `Bearer ${token}` },
         credentials: 'include',
       });
-      const usersData: Array<{ _id: string; name: string; email: string; role: string; phone?: string; specialty?: string }> = await usersResponse.json();
+      const usersResult = await usersResponse.json();
+      const usersData: Array<{ _id: string; name: string; email: string; role: string; phone?: string; specialty?: string }> = usersResult.data || usersResult;
       
       const patientsList = usersData.filter((u) => u.role === 'patient');
       const doctorsList = usersData.filter((u) => u.role === 'doctor');
@@ -146,14 +148,16 @@ export default function AdminDashboard() {
         headers: { Authorization: `Bearer ${token}` },
         credentials: 'include',
       });
-      const appointmentsData: Array<{ _id: string; date?: string; createdAt?: string }> = await appointmentsResponse.json();
+      const appointmentsResult = await appointmentsResponse.json();
+      const appointmentsData: Array<{ _id: string; date?: string; createdAt?: string }> = appointmentsResult.data || appointmentsResult;
 
       // Fetch reports
       const reportsResponse = await fetch(`${API_URL}/reports`, {
         headers: { Authorization: `Bearer ${token}` },
         credentials: 'include',
       });
-      const reportsData: Array<{ aiProcessed: boolean; _id: string; uploadDate: string; category?: string }> = await reportsResponse.json();
+      const reportsResult = await reportsResponse.json();
+      const reportsData: Array<{ aiProcessed: boolean; _id: string; uploadDate: string; category?: string }> = reportsResult.data || reportsResult;
 
       // Calculate stats
       const today = new Date().toISOString().split('T')[0];

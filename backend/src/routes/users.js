@@ -9,6 +9,9 @@ const {
 } = require('../controllers/userController');
 
 const router = express.Router();
+const auth = require('../middleware/auth');
+
+router.use(auth);
 
 // User routes
 router.get('/', getAllUsers);           // GET /api/users

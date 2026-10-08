@@ -66,7 +66,7 @@ function LoginForm() {
           'Content-Type': 'application/json',
         },
         credentials: 'include', // Important: Include cookies in cross-origin requests
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, role }),
       });
 
       console.log('📡 Response status:', response.status);
@@ -217,14 +217,16 @@ function LoginForm() {
               </div>
             </div>
 
-            <div className="mt-6">
-              <Link
-                href={`/auth/signup?role=${role}`}
-                className={`w-full flex justify-center py-2 px-4 border border-${roleInfo.color}-600 rounded-md shadow-sm text-sm font-medium text-${roleInfo.color}-600 bg-white hover:bg-${roleInfo.color}-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${roleInfo.color}-500`}
-              >
-                Create new account
-              </Link>
-            </div>
+            {role !== 'admin' && (
+              <div className="mt-6">
+                <Link
+                  href={`/auth/signup?role=${role}`}
+                  className={`w-full flex justify-center py-2 px-4 border border-${roleInfo.color}-600 rounded-md shadow-sm text-sm font-medium text-${roleInfo.color}-600 bg-white hover:bg-${roleInfo.color}-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${roleInfo.color}-500`}
+                >
+                  Create new account
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Role switcher */}

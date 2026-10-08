@@ -21,6 +21,13 @@ const signup = async (req, res) => {
       });
     }
 
+    if (role === 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin accounts are provisioned by the system. Please use admin sign in.'
+      });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -75,7 +82,7 @@ const signup = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
     // Validation
     if (!email || !password) {
@@ -91,6 +98,13 @@ const login = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
+      });
+    }
+
+    if (role && user.role !== role) {
+      return res.status(401).json({
+        success: false,
+        message: `These credentials belong to a ${user.role} account. Please choose the correct sign-in portal.`
       });
     }
 
@@ -134,6 +148,31 @@ const login = async (req, res) => {
       message: 'Internal server error',
       error: error.message
     });
+  }
+};
+
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current password and new password are required' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user || !(await comparePassword(currentPassword, user.password))) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    user.password = await hashPassword(newPassword);
+    await user.save();
+    res.status(200).json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
   }
 };
 
@@ -320,5 +359,6 @@ module.exports = {
   logout,
   verify,
   verifyEmail,
-  resendOTP
+  resendOTP,
+  changePassword
 };

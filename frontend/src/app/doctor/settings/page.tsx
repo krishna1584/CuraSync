@@ -93,6 +93,7 @@ export default function DoctorSettings() {
 
   // Availability
   const [availability, setAvailability] = useState<{day: string; startTime: string; endTime: string}[]>([]);
+  const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   useEffect(() => {
     checkAuth();
@@ -133,7 +134,7 @@ export default function DoctorSettings() {
           experience: userData.experience || 0,
           consultationFee: userData.consultationFee || 0
         });
-        setAvailability(userData.availability || []);
+        setAvailability((userData.availability || []).sort((a: { day: string }, b: { day: string }) => weekDays.indexOf(a.day) - weekDays.indexOf(b.day)));
       } else {
         localStorage.removeItem('token');
         router.push('/auth/login');
@@ -204,11 +205,41 @@ export default function DoctorSettings() {
       return;
     }
 
-    toast.success('Password change feature will be available soon');
+    try {
+      setSaving(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to change password');
+      }
+      toast.success(result.message);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to change password');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveAvailability = async () => {
     if (!user) return;
+
+    if (availability.some(slot => !slot.startTime || !slot.endTime || slot.startTime >= slot.endTime)) {
+      toast.error('Each availability slot needs a start time before its end time');
+      return;
+    }
 
     try {
       setSaving(true);
@@ -241,7 +272,8 @@ export default function DoctorSettings() {
   };
 
   const addAvailabilitySlot = () => {
-    setAvailability([...availability, { day: 'Monday', startTime: '09:00', endTime: '17:00' }]);
+    const nextDay = weekDays.find(day => !availability.some(slot => slot.day === day)) || 'Monday';
+    setAvailability([...availability, { day: nextDay, startTime: '09:00', endTime: '17:00' }].sort((a, b) => weekDays.indexOf(a.day) - weekDays.indexOf(b.day)));
   };
 
   const removeAvailabilitySlot = (index: number) => {
@@ -477,7 +509,7 @@ export default function DoctorSettings() {
                       onChange={(e) => updateAvailabilitySlot(index, 'day', e.target.value)}
                       className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
-                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                      {weekDays.map(day => (
                         <option key={day} value={day}>{day}</option>
                       ))}
                     </select>

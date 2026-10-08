@@ -13,7 +13,8 @@ import {
   ArrowLeft,
   Plus,
   Clock,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -35,6 +36,10 @@ interface Prescription {
     duration: string;
   }[];
   diagnosis: string;
+  symptoms?: string;
+  vitalSigns?: Record<string, string | number>;
+  labTests?: string[];
+  followUpDate?: string;
   notes?: string;
   createdAt: string;
 }
@@ -44,6 +49,7 @@ export default function DoctorPrescriptions() {
   const [filteredPrescriptions, setFilteredPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -293,7 +299,7 @@ export default function DoctorPrescriptions() {
                     </div>
 
                     <button
-                      onClick={() => router.push(`/doctor/prescriptions/${prescription._id}`)}
+                      onClick={() => setSelectedPrescription(prescription)}
                       className="text-blue-600 hover:text-blue-700 text-sm font-medium whitespace-nowrap"
                     >
                       View Details
@@ -319,6 +325,54 @@ export default function DoctorPrescriptions() {
             </div>
           )}
         </div>
+
+        {selectedPrescription && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="prescription-details-title">
+            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b p-5">
+                <div>
+                  <h2 id="prescription-details-title" className="text-xl font-semibold text-gray-900">Prescription Details</h2>
+                  <p className="text-sm text-gray-500">{selectedPrescription.patientId?.name || 'Unknown Patient'}</p>
+                </div>
+                <button type="button" onClick={() => setSelectedPrescription(null)} className="rounded p-2 text-gray-500 hover:bg-gray-100" aria-label="Close prescription details">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-5 p-5">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Diagnosis</h3>
+                  <p className="text-gray-900">{selectedPrescription.diagnosis}</p>
+                </div>
+                {selectedPrescription.symptoms && (
+                  <div><h3 className="text-sm font-medium text-gray-500">Symptoms</h3><p className="text-gray-900">{selectedPrescription.symptoms}</p></div>
+                )}
+                <div>
+                  <h3 className="mb-2 text-sm font-medium text-gray-500">Medications</h3>
+                  <div className="space-y-2">
+                    {selectedPrescription.medications.map((medication, index) => (
+                      <div key={`${medication.name}-${index}`} className="rounded bg-gray-50 p-3 text-sm">
+                        <p className="font-medium text-gray-900">{medication.name}</p>
+                        <p className="text-gray-600">{medication.dosage}, {medication.frequency} for {medication.duration}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {selectedPrescription.vitalSigns && Object.keys(selectedPrescription.vitalSigns).length > 0 && (
+                  <div><h3 className="text-sm font-medium text-gray-500">Vital Signs</h3><p className="text-gray-900">{Object.entries(selectedPrescription.vitalSigns).map(([key, value]) => `${key}: ${value}`).join(' | ')}</p></div>
+                )}
+                {selectedPrescription.labTests && selectedPrescription.labTests.length > 0 && (
+                  <div><h3 className="text-sm font-medium text-gray-500">Lab Tests</h3><p className="text-gray-900">{selectedPrescription.labTests.join(', ')}</p></div>
+                )}
+                {selectedPrescription.followUpDate && (
+                  <div><h3 className="text-sm font-medium text-gray-500">Follow-up Date</h3><p className="text-gray-900">{new Date(selectedPrescription.followUpDate).toLocaleDateString()}</p></div>
+                )}
+                {selectedPrescription.notes && (
+                  <div><h3 className="text-sm font-medium text-gray-500">Notes</h3><p className="whitespace-pre-wrap text-gray-900">{selectedPrescription.notes}</p></div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Info Banner */}
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">

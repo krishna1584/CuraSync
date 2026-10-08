@@ -525,10 +525,16 @@ export default function DoctorDashboard() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <button className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors">
+                      <button
+                        onClick={() => router.push(`/doctor/patient-health/${patient._id}`)}
+                        className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
+                      >
                         View Records
                       </button>
-                      <button className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors">
+                      <button
+                        onClick={() => router.push('/doctor/appointments')}
+                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
+                      >
                         Schedule
                       </button>
                     </div>

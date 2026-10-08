@@ -153,16 +153,31 @@ export default function PatientSettings() {
 
     setSaving(true);
     try {
-      // In real app, call backend API to change password
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Password changed successfully!');
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to change password');
+      }
+      toast.success(result.message);
       setPasswordData({
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
       });
     } catch (error) {
-      toast.error('Failed to change password');
+      toast.error(error instanceof Error ? error.message : 'Failed to change password');
     } finally {
       setSaving(false);
     }

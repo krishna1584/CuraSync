@@ -77,22 +77,22 @@ export default function HomePage() {
 
   const testimonials = [
     {
-      name: "Dr. Sarah Johnson",
+      name: "Dr. Vihaan Chawla",
       role: "Cardiologist",
-      text: "CuraSync has revolutionized how I manage patient care. The interface is intuitive and the security is top-notch.",
+      text: "CuraSync has revolutionized how I manage patient care. The interface is intuitive and the security is top notch.",
       rating: 5
     },
     {
-      name: "Michael Chen",
+      name: "Prateek Goyal",
       role: "Patient",
       text: "Booking appointments and accessing my records has never been easier. This platform is a game-changer!",
-      rating: 5
+      rating: 4.5
     },
     {
-      name: "Dr. Emily Rodriguez",
+      name: "Dr. Madhur Balwada",
       role: "Family Medicine",
       text: "The comprehensive features and seamless workflow have significantly improved our practice efficiency.",
-      rating: 5
+      rating: 4.7
     }
   ];
 
@@ -323,7 +323,7 @@ export default function HomePage() {
                 className={`bg-gradient-to-br from-gray-50 to-blue-50 rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all duration-500 animate-fade-up animate-delay-${(index + 1) * 200}`}
               >
                 <div className="flex items-center mb-6">
-                  {[...Array(testimonial.rating)].map((_, i) => (
+                  {[...Array(Math.round(testimonial.rating))].map((_, i) => (
                     <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
                   ))}
                 </div>
@@ -450,10 +450,6 @@ export default function HomePage() {
               
               <div className="space-y-4">
                 <div className="flex items-center space-x-3">
-                  <Shield className="h-5 w-5" />
-                  <span>Enterprise-grade security & HIPAA compliance</span>
-                </div>
-                <div className="flex items-center space-x-3">
                   <Clock className="h-5 w-5" />
                   <span>Real-time updates & notifications</span>
                 </div>
@@ -497,22 +493,22 @@ export default function HomePage() {
             <div className="bg-white rounded-xl p-6 text-center shadow-sm">
               <Phone className="h-8 w-8 text-blue-600 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Phone Support</h3>
-              <p className="text-gray-600">+1 (555) 123-4567</p>
+              <p className="text-gray-600">9876543210</p>
               <p className="text-sm text-gray-500 mt-1">24/7 Emergency Support</p>
             </div>
 
             <div className="bg-white rounded-xl p-6 text-center shadow-sm">
               <Mail className="h-8 w-8 text-blue-600 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Email Support</h3>
-              <p className="text-gray-600">support@curasync.com</p>
+              <p className="text-gray-600">krishnaydv1584@gmail.com</p>
               <p className="text-sm text-gray-500 mt-1">Response within 2 hours</p>
             </div>
 
             <div className="bg-white rounded-xl p-6 text-center shadow-sm">
               <MapPin className="h-8 w-8 text-blue-600 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Visit Us</h3>
-              <p className="text-gray-600">123 Healthcare Ave</p>
-              <p className="text-sm text-gray-500 mt-1">Medical District, NY 10001</p>
+              <p className="text-gray-600">Panchkula</p>
+              <p className="text-sm text-gray-500 mt-1">India, 160102</p>
             </div>
           </div>
         </div>
@@ -565,8 +561,8 @@ export default function HomePage() {
             <div>
               <h4 className="text-lg font-semibold mb-4">Support</h4>
               <div className="space-y-2">
-                <p className="text-gray-400">support@curasync.com</p>
-                <p className="text-gray-400">+1 (555) 123-4567</p>
+                <p className="text-gray-400">krishnaydv1584@gmail.com</p>
+                <p className="text-gray-400">9876543210</p>
                 <p className="text-gray-400">24/7 Emergency</p>
               </div>
             </div>
@@ -574,7 +570,7 @@ export default function HomePage() {
 
           <div className="border-t border-gray-800 mt-8 pt-8 text-center">
             <p className="text-gray-400">
-              © 2024 CuraSync Hospital Management System. All rights reserved.
+              © 2026 CuraSync Hospital Management System. All rights reserved.
             </p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Heart, Eye, EyeOff, User, Mail, Phone } from 'lucide-react';
@@ -12,6 +12,12 @@ function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const role = searchParams.get('role') || 'patient';
+
+  useEffect(() => {
+    if (role === 'admin') {
+      router.replace('/auth/login?role=admin');
+    }
+  }, [role, router]);
 
   const [formData, setFormData] = useState({
     name: '',
