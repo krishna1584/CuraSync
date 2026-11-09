@@ -15,9 +15,7 @@ import {
   Mail
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import Navigation from '@/components/Navigation';
 import { useSocket } from '@/contexts/SocketContext';
-import { NotificationBell } from '@/components/NotificationBell';
 
 interface Doctor {
   _id: string;
@@ -45,7 +43,7 @@ const toLocalDateString = (date: Date) =>
 
 export default function BookAppointmentPage() {
   const router = useRouter();
-  const { socket, isConnected, notifications, registerUser, clearNotification } = useSocket();
+  const { socket, isConnected, registerUser } = useSocket();
   const [user, setUser] = useState<UserType | null>(null);
   const socketRegistered = useRef(false);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -276,7 +274,6 @@ export default function BookAppointmentPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Navigation />
         <div className="flex items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
@@ -286,8 +283,6 @@ export default function BookAppointmentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
-      <NotificationBell notifications={notifications} onClear={clearNotification} />
       
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6">

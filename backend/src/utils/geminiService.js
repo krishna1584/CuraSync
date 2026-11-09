@@ -1,107 +1,61 @@
 const { GoogleGenAI } = require('@google/genai');
-const axios = require('axios');
 
-// Initialize Gemini AI with new SDK
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let client = null;
+const getClient = () => {
+  if (!client) client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  return client;
+};
+
+const READ_FAILED = 'AI could not read this file';
 
 /**
- * Extract medical data from report using Gemini AI
- * @param {string} cloudinaryUrl - URL of the uploaded report
+ * Extract medical data from an uploaded report using Gemini AI.
+ * @param {{buffer: Buffer, mimeType: string}} file - The uploaded file
  * @param {string} reportType - Type of medical report
- * @returns {Object} Extracted medical data
+ * @returns {Object} { success, data } or { success: false, error }
  */
-const extractMedicalData = async (cloudinaryUrl, reportType = 'general') => {
+const extractMedicalData = async (file, reportType = 'general') => {
+  if (!process.env.GEMINI_API_KEY) {
+    return { success: false, error: 'AI extraction is not set up on the server', aiProcessed: false, data: {} };
+  }
+
   try {
-    // Download file from Cloudinary
-    const response = await axios.get(cloudinaryUrl, {
-      responseType: 'arraybuffer',
-      timeout: 30000 // 30 seconds timeout
-    });
-
-    const fileBuffer = Buffer.from(response.data);
-    
-    // Determine MIME type from URL or headers
-    let mimeType = 'application/pdf'; // Default
-    if (cloudinaryUrl.includes('.pdf')) {
-      mimeType = 'application/pdf';
-    } else if (cloudinaryUrl.includes('.png')) {
-      mimeType = 'image/png';
-    } else if (cloudinaryUrl.includes('.jpg') || cloudinaryUrl.includes('.jpeg')) {
-      mimeType = 'image/jpeg';
-    } else if (response.headers['content-type'] && 
-               response.headers['content-type'] !== 'application/octet-stream') {
-      mimeType = response.headers['content-type'];
-    }
-
-    console.log('File MIME type:', mimeType);
-
-    // Convert buffer to base64
-    const base64Data = fileBuffer.toString('base64');
-
-    // Prepare the file for Gemini
-    const filePart = {
-      inlineData: {
-        data: base64Data,
-        mimeType: mimeType
-      }
-    };
-
-    // Create a detailed prompt based on report type
-    const prompt = createPromptForReportType(reportType);
-
-    // Use Gemini 2.5 Flash (new version)
-    const result = await ai.models.generateContent({
+    const result = await getClient().models.generateContent({
       model: 'gemini-2.5-flash',
       contents: [
         {
           role: 'user',
           parts: [
-            { text: prompt },
-            filePart
+            { text: createPromptForReportType(reportType) },
+            { inlineData: { data: file.buffer.toString('base64'), mimeType: file.mimeType } }
           ]
         }
       ],
-      generationConfig: {
+      config: {
         temperature: 0.2,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 8192,
+        responseMimeType: 'application/json',
+        // Plain extraction doesn't need reasoning, and thinking tokens would eat the output limit.
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
 
-    const response_text = result.text;
-
-    // Parse the JSON response
-    let extractedData;
-    try {
-      // Try to extract JSON from the response
-      const jsonMatch = response_text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        extractedData = JSON.parse(jsonMatch[0]);
-      } else {
-        extractedData = JSON.parse(response_text);
-      }
-    } catch (parseError) {
-      console.error('JSON parsing error:', parseError);
-      // Return raw text if JSON parsing fails
-      extractedData = {
-        rawText: response_text,
-        parsingError: true
-      };
+    const text = result.text;
+    if (!text) {
+      console.error('Gemini returned no text. Finish reason:', result.candidates?.[0]?.finishReason);
+      return { success: false, error: READ_FAILED, aiProcessed: false, data: {} };
     }
 
-    return {
-      success: true,
-      data: extractedData,
-      aiProcessed: true
-    };
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const data = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return { success: false, error: READ_FAILED, aiProcessed: false, data: {} };
+    }
 
+    return { success: true, data, aiProcessed: true };
   } catch (error) {
-    console.error('Gemini AI extraction error:', error);
-    return {
-      success: false,
-      error: error.message,
-      aiProcessed: false,
-      data: {}
-    };
+    console.error('Gemini AI extraction error:', error.message);
+    return { success: false, error: READ_FAILED, aiProcessed: false, data: {} };
   }
 };
 
@@ -276,39 +230,114 @@ Return ONLY valid JSON format with extracted data.`
   return specificPrompts[reportType] || specificPrompts['default'];
 };
 
+// Standard metric name -> the labels reports use for it (lower case, letters and digits only).
+const METRIC_ALIASES = {
+  hemoglobin: ['hemoglobin', 'haemoglobin', 'hb', 'hgb', 'hemoglobinhb', 'haemoglobinhb', 'hemoglobinhgb'],
+  bloodSugar: ['bloodsugar', 'glucose', 'fastingglucose', 'fastingbloodsugar', 'fastingbloodglucose', 'fbs',
+    'randomglucose', 'randombloodsugar', 'rbs', 'postprandialglucose', 'postprandialbloodsugar', 'ppbs'],
+  hba1c: ['hba1c', 'glycatedhemoglobin', 'glycatedhaemoglobin'],
+  cholesterol: ['cholesterol', 'totalcholesterol', 'cholesteroltotal'],
+  ldl: ['ldl', 'ldlcholesterol', 'cholesterolldl'],
+  hdl: ['hdl', 'hdlcholesterol', 'cholesterolhdl'],
+  triglycerides: ['triglycerides', 'triglyceride'],
+  bloodPressure: ['bloodpressure', 'bp'],
+  heartRate: ['heartrate', 'pulse', 'pulserate'],
+  temperature: ['temperature', 'bodytemperature'],
+  weight: ['weight', 'bodyweight'],
+  height: ['height'],
+  bmi: ['bmi', 'bodymassindex'],
+  rbc: ['rbc', 'rbccount', 'redbloodcells', 'redbloodcellcount'],
+  wbc: ['wbc', 'wbccount', 'whitebloodcells', 'whitebloodcellcount', 'tlc', 'totalleukocytecount'],
+  platelets: ['platelets', 'platelet', 'plateletcount'],
+  hematocrit: ['hematocrit', 'haematocrit', 'hct', 'pcv'],
+  sgot: ['sgot', 'ast', 'sgotast', 'astsgot'],
+  sgpt: ['sgpt', 'alt', 'sgptalt', 'altsgpt'],
+  creatinine: ['creatinine', 'serumcreatinine'],
+  urea: ['urea', 'bloodurea', 'serumurea'],
+  bun: ['bun', 'bloodureanitrogen'],
+  uricAcid: ['uricacid', 'serumuricacid'],
+  tsh: ['tsh', 'thyroidstimulatinghormone'],
+  t3: ['t3', 'triiodothyronine', 'totalt3'],
+  t4: ['t4', 'thyroxine', 'totalt4'],
+  sodium: ['sodium'],
+  potassium: ['potassium'],
+  calcium: ['calcium', 'serumcalcium'],
+  vitaminD: ['vitamind', 'vitamind3', '25ohvitamind'],
+  vitaminB12: ['vitaminb12', 'b12'],
+  iron: ['iron', 'serumiron'],
+  ferritin: ['ferritin', 'serumferritin']
+};
+
+const METRIC_BY_LABEL = new Map(
+  Object.entries(METRIC_ALIASES).flatMap(([metric, labels]) => labels.map((label) => [label, metric]))
+);
+
+const normalizeLabel = (label) => String(label).toLowerCase().replace(/[^a-z0-9]/g, '');
+// MongoDB map keys cannot contain dots or start with "$".
+const safeKey = (key) => String(key).trim().replace(/[.$]/g, '_');
+const isEmpty = (value) => value === null || value === undefined || value === '';
+const isPlainValue = (value) => ['string', 'number', 'boolean'].includes(typeof value);
+
+const VALUE_FIELDS = ['value', 'result'];
+const LABEL_FIELDS = ['name', 'test', 'testName', 'parameter', 'parameterName', 'analyte'];
+const RANGE_FIELDS = ['normalRange', 'referenceRange', 'range', 'normal'];
+const firstField = (object, fields) => fields.map((field) => object[field]).find((value) => !isEmpty(value));
+
+const SUMMARY_FIELDS = ['summary', 'impression', 'interpretation', 'conclusion', 'notes', 'findings'];
+
 /**
- * Validate and structure extracted data
+ * Turn the AI's JSON (often nested, e.g. { cbc: { hemoglobin: { value, unit } } }) into flat
+ * text fields for display, plus key metrics under standard names.
  */
-const structureExtractedData = (extractedData, reportType) => {
-  // Convert extracted data to a flat structure for easier storage
+const structureExtractedData = (extractedData) => {
   const structured = {};
   const metrics = {};
 
-  // Common metrics mapping - extended list
-  const metricKeys = [
-    'hemoglobin', 'bloodSugar', 'glucose', 'cholesterol', 
-    'bloodPressure', 'heartRate', 'temperature', 'weight', 
-    'height', 'bmi', 'cholesterolTotal', 'cholesterolLDL', 
-    'cholesterolHDL', 'triglycerides', 'hba1c', 'fastingBloodSugar',
-    'randomBloodSugar', 'postprandialBloodSugar', 'rbc', 'wbc',
-    'platelet', 'hematocrit', 'sgot', 'sgpt', 'ast', 'alt',
-    'creatinine', 'urea', 'uricAcid', 'bun', 'tsh', 't3', 't4',
-    'sodium', 'potassium', 'calcium', 'vitaminD', 'vitaminB12',
-    'iron', 'ferritin'
-  ];
+  const record = (path, label, value) => {
+    const text = String(value).trim();
+    if (!text) return;
+    structured[safeKey(path)] = text;
+    const metric = METRIC_BY_LABEL.get(normalizeLabel(label));
+    if (metric && !metrics[metric]) metrics[metric] = text;
+  };
 
-  for (const [key, value] of Object.entries(extractedData)) {
-    const lowerKey = key.toLowerCase();
-    
-    // Check if it's a common metric
-    if (metricKeys.some(metric => lowerKey.includes(metric.toLowerCase()))) {
-      metrics[key] = String(value);
+  const walk = (value, path, label) => {
+    if (isEmpty(value)) return;
+
+    if (isPlainValue(value)) {
+      record(path, label, value);
+      return;
     }
-    
-    structured[key] = String(value);
-  }
 
-  return { structured, metrics };
+    if (Array.isArray(value)) {
+      if (value.every(isPlainValue)) {
+        if (value.length > 0) record(path, label, value.join(', '));
+        return;
+      }
+      value.forEach((item, index) => {
+        const itemLabel = item && typeof item === 'object' ? firstField(item, LABEL_FIELDS) : null;
+        if (itemLabel) walk(item, String(itemLabel), String(itemLabel));
+        else walk(item, `${path}_${index + 1}`, label);
+      });
+      return;
+    }
+
+    // A single reading: { value: 13.5, unit: "g/dL", normalRange: "13-17" }
+    const reading = firstField(value, VALUE_FIELDS);
+    if (isPlainValue(reading)) {
+      record(path, label, value.unit ? `${reading} ${value.unit}` : reading);
+      const range = firstField(value, RANGE_FIELDS);
+      if (isPlainValue(range)) structured[safeKey(`${path}_range`)] = String(range);
+      return;
+    }
+
+    Object.entries(value).forEach(([key, child]) => walk(child, path ? `${path}_${key}` : key, key));
+  };
+
+  walk(extractedData, '', '');
+
+  const summaryValue = firstField(extractedData, SUMMARY_FIELDS);
+  return { structured, metrics, summary: typeof summaryValue === 'string' ? summaryValue : '' };
 };
 
 module.exports = {

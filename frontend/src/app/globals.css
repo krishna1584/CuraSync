@@ -139,6 +139,8 @@ body {
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
+  /* Keeps section titles visible below the fixed 80px header. */
+  scroll-padding-top: 6rem;
 }
 
 /* Custom scrollbar */
@@ -233,6 +235,19 @@ html {
 /* Notification badge animation */
 .notification-badge {
   animation: notification-bounce 1s;
+}
+
+/* Long names and emails wrap instead of pushing the page wider than the screen. */
+main {
+  overflow-wrap: anywhere;
+}
+
+/* Phones: keep entrance effects but drop the endless ones, which drain battery. */
+@media (max-width: 767px) {
+  .animate-float,
+  .animate-glow {
+    animation: none;
+  }
 }
 
 /* Reduced motion preferences */

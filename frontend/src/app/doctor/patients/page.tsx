@@ -272,7 +272,7 @@ export default function DoctorPatients() {
                             <span className="sm:hidden">View</span>
                           </button>
                           <button
-                            onClick={() => router.push(`/doctor/prescriptions/create?patientId=${patient._id}`)}
+                            onClick={() => router.push(`/doctor/create-prescription?patientId=${patient._id}`)}
                             className="text-blue-600 hover:text-blue-700 inline-flex items-center bg-blue-50 px-3 py-1 rounded-lg transition-colors"
                           >
                             <Plus className="h-4 w-4 mr-1" />

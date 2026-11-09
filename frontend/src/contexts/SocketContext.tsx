@@ -155,6 +155,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       globalSocket.on('appointment_notification', (data: SocketEventData) => {
         if (!alertsAllowed('inAppAlerts')) return;
         pushNotification(data.type, data.message, data.timestamp, data.appointment);
+        toast(data.message, { icon: '📅' });
       });
 
       // New appointments (hospital staff dashboards)

@@ -77,18 +77,11 @@ const reportSchema = new mongoose.Schema({
     default: {}
   },
   
-  // Common Health Metrics (structured for easy querying)
+  // Key health values under standard names (hemoglobin, bloodSugar, ldl, tsh, ...)
   metrics: {
-    hemoglobin: String,
-    bloodSugar: String,
-    cholesterol: String,
-    bloodPressure: String,
-    heartRate: String,
-    temperature: String,
-    weight: String,
-    height: String,
-    bmi: String,
-    // Add more as needed
+    type: Map,
+    of: String,
+    default: {}
   },
 
   // Test Date

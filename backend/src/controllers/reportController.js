@@ -1,3 +1,5 @@
+const path = require('path');
+const mongoose = require('mongoose');
 const multer = require('multer');
 const Report = require('../models/Report');
 const Appointment = require('../models/Appointment');
@@ -8,24 +10,48 @@ const { extractMedicalData, structureExtractedData } = require('../utils/geminiS
 // Configure multer for memory storage (we'll upload to Cloudinary)
 const storage = multer.memoryStorage();
 
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    // Allow only specific file types
-    const allowedTypes = /jpeg|jpg|png|pdf/;
-    const extname = allowedTypes.test(file.originalname.toLowerCase());
-    const mimetype = file.mimetype.includes('image') || file.mimetype.includes('pdf');
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB
 
-    if (mimetype && extname) {
+// The only file types the app can store, show and read with AI.
+const ALLOWED_UPLOADS = {
+  'application/pdf': ['.pdf'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/jpg': ['.jpg', '.jpeg'],
+  'image/png': ['.png']
+};
+
+const UNSUPPORTED_FILE_MESSAGE = 'Only PDF, JPG and PNG files are allowed';
+const badUpload = (message) => Object.assign(new Error(message), { statusCode: 400 });
+
+const upload = multer({
+  storage,
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
+  fileFilter: (req, file, cb) => {
+    const extension = path.extname(file.originalname || '').toLowerCase();
+    const extensions = ALLOWED_UPLOADS[file.mimetype];
+    if (extensions && extensions.includes(extension)) {
       return cb(null, true);
-    } else {
-      cb(new Error('Only images and PDFs are allowed'));
     }
+    cb(badUpload(UNSUPPORTED_FILE_MESSAGE));
   }
 });
+
+// Work out the real file type from its first bytes; the name and browser type can be wrong.
+const detectFileType = (buffer) => {
+  if (!buffer || buffer.length < 4) return null;
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'image/jpeg';
+  if (buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
+  if (buffer.subarray(0, 1024).includes('%PDF-')) return 'application/pdf';
+  return null;
+};
+
+// Accepts either the database _id or the readable patient number (PAT000001).
+const findPatientByAnyId = (id) => {
+  const value = String(id);
+  const matchers = [{ patientId: value }];
+  if (mongoose.isValidObjectId(value)) matchers.push({ _id: value });
+  return User.findOne({ role: 'patient', $or: matchers });
+};
 
 const { isHospitalStaff, doctorCanAccessPatient, errorDetails } = require('../utils/access');
 
@@ -41,16 +67,14 @@ const reportIsAccessible = async (report, user) => {
  */
 const uploadReport = async (req, res) => {
   try {
-    const { patientId, reportType, reportTitle, testDate, notes } = req.body;
+    const { patientId, reportType, testDate, notes } = req.body;
+    const reportTitle = String(req.body.reportTitle || '').trim();
     const uploadedBy = req.user._id;
     const uploadedByRole = req.user.role;
-    
-    // Validation
+
+    // Everything is checked first so a rejected upload never reaches Cloudinary.
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No file uploaded'
-      });
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
     if (!patientId || !reportType || !reportTitle || !testDate) {
@@ -60,16 +84,33 @@ const uploadReport = async (req, res) => {
       });
     }
 
-    // Find patient
-    const patient = await User.findOne({ 
-      $or: [{ _id: patientId }, { patientId: patientId }] 
-    });
+    if (!Report.schema.path('reportType').enumValues.includes(reportType)) {
+      return res.status(400).json({ success: false, message: 'Please choose a valid report type' });
+    }
+
+    if (reportTitle.length > 200) {
+      return res.status(400).json({ success: false, message: 'Report title must be 200 characters or fewer' });
+    }
+
+    const parsedTestDate = new Date(testDate);
+    // One day of slack covers time zones ahead of the server.
+    if (Number.isNaN(parsedTestDate.getTime()) || parsedTestDate.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid test date that is not in the future' });
+    }
+
+    const detectedType = detectFileType(req.file.buffer);
+    const extension = path.extname(req.file.originalname).toLowerCase();
+    if (!detectedType || !ALLOWED_UPLOADS[detectedType].includes(extension)) {
+      return res.status(400).json({
+        success: false,
+        message: 'This file is damaged or is not really a PDF, JPG or PNG'
+      });
+    }
+
+    const patient = await findPatientByAnyId(patientId);
 
     if (!patient) {
-      return res.status(404).json({
-        success: false,
-        message: 'Patient not found'
-      });
+      return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
     const canUpload = isHospitalStaff(uploadedByRole) ||
@@ -83,17 +124,12 @@ const uploadReport = async (req, res) => {
       });
     }
 
-    // Upload to Cloudinary
-    console.log('Uploading to Cloudinary...');
     const cloudinaryResult = await uploadToCloudinary(
       req.file.buffer,
       req.file.originalname,
       'medical-reports'
     );
 
-    console.log('Cloudinary upload successful:', cloudinaryResult.public_id);
-
-    // Create initial report entry
     const report = new Report({
       patient: patient._id,
       patientId: patient.patientId,
@@ -112,20 +148,34 @@ const uploadReport = async (req, res) => {
       cloudinaryDeliveryType: cloudinaryResult.type,
       cloudinaryFormat: cloudinaryResult.format,
       fileName: req.file.originalname,
-      fileType: req.file.mimetype,
-      testDate: new Date(testDate),
+      fileType: detectedType,
+      testDate: parsedTestDate,
       uploadedBy,
       uploadedByRole,
       notes: notes || '',
       status: 'pending'
     });
 
-    await report.save();
+    try {
+      await report.save();
+    } catch (saveError) {
+      // Don't leave a file on Cloudinary that no report points to.
+      await deleteFromCloudinary(
+        cloudinaryResult.public_id,
+        cloudinaryResult.resource_type,
+        cloudinaryResult.type
+      ).catch((cleanupError) => console.error('Cloudinary cleanup failed:', cleanupError.message));
+      throw saveError;
+    }
 
-    // Extract data using AI in background (don't wait for it)
-    const io = req.app.get('io');
-    const connectedUsers = req.app.get('connectedUsers');
-    extractDataInBackground(report._id, report.cloudinaryUrl, reportType, io, connectedUsers);
+    // AI extraction runs in the background from the bytes we already have.
+    extractDataInBackground(
+      report._id,
+      { buffer: req.file.buffer, mimeType: detectedType },
+      reportType,
+      req.app.get('io'),
+      req.app.get('connectedUsers')
+    );
 
     res.status(201).json({
       success: true,
@@ -146,70 +196,55 @@ const uploadReport = async (req, res) => {
 /**
  * Background AI extraction (async)
  */
-const extractDataInBackground = async (reportId, cloudinaryUrl, reportType, io = null, connectedUsers = null) => {
+const extractDataInBackground = async (reportId, file, reportType, io = null, connectedUsers = null) => {
+  const markFailed = (message) => Report.findByIdAndUpdate(reportId, {
+    aiProcessed: false,
+    aiProcessingError: message
+  });
+
   try {
-    console.log('Starting AI extraction for report:', reportId);
-    
-    // Extract data using Gemini AI
-    const extractionResult = await extractMedicalData(cloudinaryUrl, reportType);
-    
-    if (extractionResult.success) {
-      // Structure the data
-      const { structured, metrics } = structureExtractedData(
-        extractionResult.data,
-        reportType
-      );
+    const extractionResult = await extractMedicalData(file, reportType);
 
-      // Update report with extracted data
-      const updatedReport = await Report.findByIdAndUpdate(reportId, {
-        extractedData: structured,
-        metrics: metrics,
-        aiProcessed: true,
-        status: 'processed',
-        summary: extractionResult.data.notes || extractionResult.data.impression || ''
-      }, { new: true }).populate('patient', 'name email patientId');
+    if (!extractionResult.success) {
+      await markFailed(extractionResult.error);
+      return;
+    }
 
-      console.log('AI extraction completed for report:', reportId);
-      
-      // Notify patient via Socket.IO
-      try {
-        if (io && connectedUsers && updatedReport) {
-          const patientId = updatedReport.patient._id.toString();
-          const userConnection = connectedUsers[patientId];
-          
-          if (userConnection) {
-            console.log(`📤 Sending report_processed notification to ${updatedReport.patient.name}`);
-            io.to(userConnection.socketId).emit('report_processed', {
-              reportId: updatedReport._id,
-              reportTitle: updatedReport.reportTitle,
-              reportType: updatedReport.reportType,
-              metrics: updatedReport.metrics,
-              message: `Your ${updatedReport.reportType} report has been processed`,
-              timestamp: new Date().toISOString()
-            });
-          } else {
-            console.log(`📭 Patient ${updatedReport.patient.name} not connected to receive notification`);
-          }
-        }
-      } catch (socketError) {
-        console.error('Socket notification error:', socketError);
-        // Don't fail the entire process if socket notification fails
+    const { structured, metrics, summary } = structureExtractedData(extractionResult.data, reportType);
+
+    if (Object.keys(structured).length === 0) {
+      await markFailed('No values could be found in this file');
+      return;
+    }
+
+    const updatedReport = await Report.findByIdAndUpdate(reportId, {
+      extractedData: structured,
+      metrics,
+      aiProcessed: true,
+      aiProcessingError: null,
+      status: 'processed',
+      summary
+    }, { new: true }).populate('patient', 'name email patientId');
+
+    // A failed notification must not fail the extraction.
+    try {
+      const connection = updatedReport && connectedUsers && connectedUsers[updatedReport.patient._id.toString()];
+      if (io && connection) {
+        io.to(connection.socketId).emit('report_processed', {
+          reportId: updatedReport._id,
+          reportTitle: updatedReport.reportTitle,
+          reportType: updatedReport.reportType,
+          metrics,
+          message: `Your ${updatedReport.reportType} report has been processed`,
+          timestamp: new Date().toISOString()
+        });
       }
-    } else {
-      // Update with error
-      await Report.findByIdAndUpdate(reportId, {
-        aiProcessed: false,
-        aiProcessingError: extractionResult.error
-      });
-      
-      console.error('AI extraction failed:', extractionResult.error);
+    } catch (socketError) {
+      console.error('Socket notification error:', socketError);
     }
   } catch (error) {
     console.error('Background extraction error:', error);
-    await Report.findByIdAndUpdate(reportId, {
-      aiProcessed: false,
-      aiProcessingError: error.message
-    });
+    await markFailed('AI could not read this file').catch(() => {});
   }
 };
 
@@ -234,21 +269,15 @@ const getAllReports = async (req, res) => {
       query.patient = { $in: patientIds };
 
       if (patientId) {
-        const patient = await User.findOne({
-          $or: [{ _id: patientId }, { patientId: patientId }]
-        });
+        const patient = await findPatientByAnyId(patientId);
         query.patient = patient && patientIds.some(id => id.toString() === patient._id.toString())
           ? patient._id
           : { $in: [] };
       }
     } else if (patientId) {
       // Doctors/staff can filter by patient
-      const patient = await User.findOne({ 
-        $or: [{ _id: patientId }, { patientId: patientId }] 
-      });
-      if (patient) {
-        query.patient = patient._id;
-      }
+      const patient = await findPatientByAnyId(patientId);
+      query.patient = patient ? patient._id : { $in: [] };
     }
 
     // Additional filters
@@ -486,20 +515,14 @@ const getReportStats = async (req, res) => {
       query.patient = { $in: patientIds };
 
       if (patientId) {
-        const patient = await User.findOne({
-          $or: [{ _id: patientId }, { patientId: patientId }]
-        });
+        const patient = await findPatientByAnyId(patientId);
         query.patient = patient && patientIds.some(id => id.toString() === patient._id.toString())
           ? patient._id
           : { $in: [] };
       }
     } else if (patientId) {
-      const patient = await User.findOne({ 
-        $or: [{ _id: patientId }, { patientId: patientId }] 
-      });
-      if (patient) {
-        query.patient = patient._id;
-      }
+      const patient = await findPatientByAnyId(patientId);
+      query.patient = patient ? patient._id : { $in: [] };
     }
 
     const stats = await Report.aggregate([

@@ -224,7 +224,7 @@ export default function PatientHealthRecordsPage() {
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="border-b border-gray-200">
-            <nav className="flex -mb-px">
+            <nav className="flex overflow-x-auto whitespace-nowrap -mb-px">
               <button
                 onClick={() => setActiveTab('overview')}
                 className={`py-4 px-6 border-b-2 font-medium text-sm ${

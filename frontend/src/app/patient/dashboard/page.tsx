@@ -21,7 +21,6 @@ import {
   Activity
 } from 'lucide-react';
 import { useSocket } from '../../../contexts/SocketContext';
-import { NotificationBell } from '../../../components/NotificationBell';
 import { logout } from '@/lib/auth';
 
 interface Report {
@@ -130,7 +129,7 @@ function PatientReportsSection({ userId }: { userId: string }) {
         <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <p className="text-gray-600 mb-4">No medical reports yet</p>
         <Link
-          href="/upload-report"
+          href="/patient/upload-report"
           className="text-blue-600 hover:text-blue-700 font-medium"
         >
           Upload your first report
@@ -358,7 +357,7 @@ export default function PatientDashboard() {
   const socketRegistered = useRef(false);
   
   // Initialize WebSocket connection
-  const { socket, isConnected, notifications, registerUser, clearNotification } = useSocket();
+  const { socket, isConnected, registerUser } = useSocket();
 
   useEffect(() => {
     checkAuth();
@@ -565,7 +564,6 @@ export default function PatientDashboard() {
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Notifications */}
-        <NotificationBell notifications={notifications} onClear={clearNotification} />
 
         {/* Header */}
         <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

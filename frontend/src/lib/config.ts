@@ -1,5 +1,8 @@
-// API Configuration
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/+$/, ''); // Remove trailing slashes
-// Remove /api if it's already in the NEXT_PUBLIC_API_URL
-export const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
-export const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || BASE_URL.replace('/api', '');
+// The single place the frontend works out where the backend lives.
+// NEXT_PUBLIC_API_URL may be given with or without a trailing /api.
+const clean = (url: string) => url.trim().replace(/\/+$/, '');
+
+const API_ORIGIN = clean(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace(/\/api$/i, '');
+
+export const API_URL = `${API_ORIGIN}/api`;
+export const SOCKET_URL = clean(process.env.NEXT_PUBLIC_SOCKET_URL || API_ORIGIN);

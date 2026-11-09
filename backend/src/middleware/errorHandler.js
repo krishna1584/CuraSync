@@ -41,9 +41,6 @@ const errorHandler = (error, req, res, next) => {
     statusCode = 400;
     message = error.code === 'LIMIT_FILE_SIZE' ? 'File is too large (max 10MB)' : error.message;
   }
-  if (error.message === 'Only images and PDFs are allowed') {
-    statusCode = 400;
-  }
 
   // Never expose internal error text for server errors in production
   if (statusCode >= 500 && isProduction) {

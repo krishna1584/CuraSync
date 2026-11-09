@@ -187,6 +187,26 @@ const updateUser = async (req, res) => {
   }
 };
 
+// POST /api/users/:id/reset-password — admin sets a new password for someone
+const resetUserPassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+
+    if (typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, { password: await hashPassword(newPassword) });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.status(200).json({ success: true, message: 'Password changed' });
+  } catch (error) {
+    return serverError(res, 'Reset user password', error);
+  }
+};
+
 // DELETE /api/users/:id — admin only
 const deleteUser = async (req, res) => {
   try {
@@ -214,5 +234,6 @@ module.exports = {
   getPatients,
   getDoctors,
   updateUser,
+  resetUserPassword,
   deleteUser
 };

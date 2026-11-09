@@ -166,7 +166,7 @@ export default function DoctorRecords() {
               <p className="text-gray-600 mt-2">Reports from patients who have appointments with you</p>
             </div>
             <Link
-              href="/upload-report"
+              href="/doctor/upload-report"
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto justify-center"
             >
               <Upload className="h-5 w-5 mr-2" />
@@ -353,7 +353,7 @@ export default function DoctorRecords() {
       {/* Review modal */}
       {reviewing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="review-title">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90dvh] overflow-y-auto">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 id="review-title" className="text-lg font-semibold text-gray-900">Review report</h3>

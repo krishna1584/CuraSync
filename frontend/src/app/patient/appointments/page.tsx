@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { useSocket } from '@/contexts/SocketContext';
 import { toast } from 'react-hot-toast';
-import { NotificationBell } from '@/components/NotificationBell';
 
 interface Appointment {
   _id: string;
@@ -39,7 +38,7 @@ interface Appointment {
 
 export default function PatientAppointmentsPage() {
   const router = useRouter();
-  const { socket, isConnected, notifications, registerUser, clearNotification } = useSocket();
+  const { socket, isConnected, registerUser } = useSocket();
   const [user, setUser] = useState<UserType | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,7 +204,6 @@ export default function PatientAppointmentsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <NotificationBell notifications={notifications} onClear={clearNotification} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="mb-6">
           <Link href="/patient/dashboard" className="inline-flex items-center text-blue-600 hover:text-blue-700">

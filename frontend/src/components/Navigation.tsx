@@ -11,11 +11,19 @@ interface NavigationProps {
   variant?: 'default' | 'dashboard';
 }
 
+const NAV_LINKS = [
+  { href: '/#features', label: 'Features' },
+  { href: '/#about', label: 'About' },
+  { href: '/#testimonials', label: 'Reviews' },
+  { href: '/#contact', label: 'Contact' },
+];
+
 export default function Navigation({ showAuthButtons = true, variant = 'default' }: NavigationProps) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuth, setIsAuth] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState('');
 
   useEffect(() => {
     setIsAuth(isAuthenticated());
@@ -25,20 +33,38 @@ export default function Navigation({ showAuthButtons = true, variant = 'default'
     }
   }, []);
 
-  const navLinks = [
-    { href: '/#features', label: 'Features' },
-    { href: '/#about', label: 'About' },
-    { href: '/#testimonials', label: 'Reviews' },
-    { href: '/#contact', label: 'Contact' },
-  ];
+  // Highlight the section currently on screen (landing page only).
+  useEffect(() => {
+    if (pathname !== '/') {
+      setActiveSection('');
+      return;
+    }
+    const sections = NAV_LINKS
+      .map((link) => document.getElementById(link.href.replace('/#', '')))
+      .filter((section): section is HTMLElement => section !== null);
 
-  const isActive = (href: string) => {
-    if (href === '/') return pathname === '/';
-    return pathname.startsWith(href.replace('/#', ''));
-  };
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) setActiveSection(entry.target.id);
+        else setActiveSection((current) => (current === entry.target.id ? '' : current));
+      });
+    }, { rootMargin: '-96px 0px -60% 0px' });
+
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [pathname]);
+
+  const isActive = (href: string) => activeSection === href.replace('/#', '');
+
+  // Hospital staff (admin, nurse, receptionist) all use the admin area.
+  const dashboardHref = userRole === 'patient'
+    ? '/patient/dashboard'
+    : userRole === 'doctor'
+      ? '/doctor/dashboard'
+      : '/admin/dashboard';
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-white/20">
+    <nav className={`fixed top-0 left-0 right-0 z-50 border-b border-white/20 ${isMobileMenuOpen ? 'bg-white shadow-lg' : 'glass'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           {/* Logo */}
@@ -53,12 +79,13 @@ export default function Navigation({ showAuthButtons = true, variant = 'default'
           <div className="hidden md:flex items-center space-x-8 animate-slide-right">
             {variant === 'default' && (
               <>
-                {navLinks.map((link) => (
+                {NAV_LINKS.map((link) => (
                   <a
                     key={link.href}
                     href={link.href}
-                    className={`text-gray-700 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105 ${
-                      isActive(link.href) ? 'text-blue-600' : ''
+                    aria-current={isActive(link.href) ? 'true' : undefined}
+                    className={`hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105 ${
+                      isActive(link.href) ? 'text-blue-600' : 'text-gray-700'
                     }`}
                   >
                     {link.label}
@@ -72,7 +99,7 @@ export default function Navigation({ showAuthButtons = true, variant = 'default'
                 {isAuth ? (
                   <>
                     <Link 
-                      href={userRole === 'doctor' ? '/doctor/dashboard' : userRole === 'admin' ? '/admin/dashboard' : '/patient/dashboard'} 
+                      href={dashboardHref} 
                       className="text-gray-700 hover:text-blue-600 transition-all duration-300 font-medium hover:scale-105"
                     >
                       Dashboard
@@ -125,7 +152,7 @@ export default function Navigation({ showAuthButtons = true, variant = 'default'
             <div className="flex flex-col space-y-4">
               {variant === 'default' && (
                 <>
-                  {navLinks.map((link) => (
+                  {NAV_LINKS.map((link) => (
                     <a
                       key={link.href}
                       href={link.href}
@@ -145,7 +172,7 @@ export default function Navigation({ showAuthButtons = true, variant = 'default'
                   {isAuth ? (
                     <>
                       <Link 
-                        href={userRole === 'doctor' ? '/doctor/dashboard' : userRole === 'admin' ? '/admin/dashboard' : '/patient/dashboard'} 
+                        href={dashboardHref} 
                         className="text-center text-gray-700 hover:text-blue-600 transition-colors font-medium py-2"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { 
   Calendar, 
   Clock, 
@@ -13,7 +12,9 @@ import {
   Mail
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import Navigation from '@/components/Navigation';
+import { API_URL } from '@/lib/config';
+import { LAB_TESTS, LAB_TIME_SLOTS } from '@/lib/labTests';
+import { todayLocalDate } from '@/lib/reportFiles';
 
 interface Patient {
   _id: string;
@@ -48,6 +49,10 @@ export default function AdminBookingPage() {
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
   const [activeTab, setActiveTab] = useState<'appointment' | 'labtest'>('appointment');
+  const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
+  const [labSearch, setLabSearch] = useState('');
+  const [labDate, setLabDate] = useState('');
+  const [labTime, setLabTime] = useState('');
 
   const timeSlots = [
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -68,10 +73,10 @@ export default function AdminBookingPage() {
       }
 
       const [patientsResponse, doctorsResponse] = await Promise.all([
-        fetch('/api/users/patients', {
+        fetch(`${API_URL}/users/patients`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('/api/users/doctors', {
+        fetch(`${API_URL}/users/doctors`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -99,7 +104,7 @@ export default function AdminBookingPage() {
     setBooking(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/book-appointment', {
+      const response = await fetch(`${API_URL}/admin/book-appointment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,63 +153,66 @@ export default function AdminBookingPage() {
     (doctor.specialization && doctor.specialization.toLowerCase().includes(doctorSearch.toLowerCase()))
   );
 
-  const getMinDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+  const getMinDate = () => todayLocalDate();
+
+  const selectedTests = LAB_TESTS.filter((test) => selectedTestIds.includes(test.id));
+  const labTotal = selectedTests.reduce((total, test) => total + test.price, 0);
+  const filteredLabTests = LAB_TESTS.filter((test) =>
+    `${test.name} ${test.category} ${test.code}`.toLowerCase().includes(labSearch.toLowerCase())
+  );
+
+  const toggleLabTest = (id: string) => {
+    setSelectedTestIds((current) => (
+      current.includes(id) ? current.filter((testId) => testId !== id) : [...current, id]
+    ));
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navigation />
-        <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
-  }
+  const handleBookLabTests = async () => {
+    if (!selectedPatient || selectedTests.length === 0 || !labDate || !labTime) {
+      toast.error('Please choose a patient, at least one test, a date and a time');
+      return;
+    }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation />
-      
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Booking Portal</h1>
-          <p className="text-gray-600 mt-2">Book appointments and lab tests for patients</p>
-        </div>
+    setBooking(true);
+    try {
+      const response = await fetch(`${API_URL}/lab-tests/book`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          patientId: selectedPatient._id,
+          scheduledDate: labDate,
+          timeSlot: labTime,
+          tests: selectedTests.map((test) => ({
+            testName: test.name,
+            testCategory: test.category,
+            testCode: test.code,
+            sampleType: test.sampleType,
+            cost: test.price
+          }))
+        })
+      });
+      const data = await response.json().catch(() => ({}));
 
-        {/* Tab Navigation */}
-        <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
-              <button
-                onClick={() => setActiveTab('appointment')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'appointment'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Book Appointment
-              </button>
-              <button
-                onClick={() => setActiveTab('labtest')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'labtest'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Book Lab Test
-              </button>
-            </nav>
-          </div>
-        </div>
+      if (response.ok && data.success) {
+        toast.success(data.message || 'Lab tests booked');
+        setSelectedPatient(null);
+        setSelectedTestIds([]);
+        setLabDate('');
+        setLabTime('');
+      } else {
+        toast.error(data.message || 'Failed to book lab tests');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setBooking(false);
+    }
+  };
 
-        {activeTab === 'appointment' && (
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Patient Selection */}
+  const patientPicker = (
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Select Patient</h2>
               
@@ -255,6 +263,58 @@ export default function AdminBookingPage() {
                 ))}
               </div>
             </div>
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Admin Booking Portal</h1>
+          <p className="text-gray-600 mt-2">Book appointments and lab tests for patients</p>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex overflow-x-auto whitespace-nowrap space-x-8">
+              <button
+                onClick={() => setActiveTab('appointment')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'appointment'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Book Appointment
+              </button>
+              <button
+                onClick={() => setActiveTab('labtest')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'labtest'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Book Lab Test
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        {activeTab === 'appointment' && (
+          <div className="grid lg:grid-cols-3 gap-6">
+            {patientPicker}
 
             {/* Doctor Selection */}
             <div className="bg-white rounded-lg shadow p-6">
@@ -406,15 +466,97 @@ export default function AdminBookingPage() {
         )}
 
         {activeTab === 'labtest' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Lab Test Booking</h2>
-            <p className="text-gray-600">Lab test booking functionality will be implemented here.</p>
-            <Link 
-              href="/patient/book-lab-test"
-              className="inline-block mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-            >
-              Use Patient Lab Test Booking
-            </Link>
+          <div className="grid lg:grid-cols-3 gap-6">
+            {patientPicker}
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Select Tests</h2>
+              <div className="relative mb-4">
+                <Search className="h-4 w-4 absolute left-3 top-3 text-gray-400" />
+                <input
+                  type="text"
+                  value={labSearch}
+                  onChange={(e) => setLabSearch(e.target.value)}
+                  placeholder="Search tests..."
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {filteredLabTests.map((test) => (
+                  <label
+                    key={test.id}
+                    className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer ${
+                      selectedTestIds.includes(test.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedTestIds.includes(test.id)}
+                      onChange={() => toggleLabTest(test.id)}
+                      className="mt-1"
+                    />
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-medium text-gray-900">{test.name}</span>
+                      <span className="block text-sm text-gray-500">
+                        {test.category} · ₹{test.price}{test.fastingRequired ? ' · Fasting required' : ''}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Booking Details</h2>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="labDate" className="block text-sm font-medium text-gray-700 mb-2">
+                    <Calendar className="h-4 w-4 inline mr-2" />
+                    Date
+                  </label>
+                  <input
+                    id="labDate"
+                    type="date"
+                    value={labDate}
+                    onChange={(e) => setLabDate(e.target.value)}
+                    min={getMinDate()}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="labTime" className="block text-sm font-medium text-gray-700 mb-2">
+                    <Clock className="h-4 w-4 inline mr-2" />
+                    Time
+                  </label>
+                  <select
+                    id="labTime"
+                    value={labTime}
+                    onChange={(e) => setLabTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select time</option>
+                    {LAB_TIME_SLOTS.map((time) => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 space-y-1">
+                  <p><strong>Patient:</strong> {selectedPatient?.name || 'Not selected'}</p>
+                  <p><strong>Tests:</strong> {selectedTests.length}</p>
+                  <p><strong>Total:</strong> ₹{labTotal}</p>
+                </div>
+
+                <button
+                  onClick={handleBookLabTests}
+                  disabled={!selectedPatient || selectedTests.length === 0 || !labDate || !labTime || booking}
+                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {booking ? 'Booking...' : 'Book Lab Tests'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -28,6 +28,9 @@ interface Patient {
   name: string;
   email: string;
   patientId: string;
+  bloodGroup?: string;
+  allergies?: string[];
+  chronicConditions?: string[];
 }
 
 interface Medication {
@@ -124,6 +127,8 @@ function CreatePrescriptionForm() {
       console.error('Failed to fetch patients:', error);
     }
   };
+
+  const chosenPatient = patients.find((patient) => patient._id === selectedPatient);
 
   const addMedication = () => {
     setMedications([...medications, { name: '', dosage: '', frequency: '', duration: '', instructions: '' }]);
@@ -268,6 +273,18 @@ function CreatePrescriptionForm() {
                   </option>
                 ))}
               </select>
+              {patients.length === 0 && (
+                <p className="mt-2 text-sm text-gray-500">
+                  You can prescribe for patients who have an appointment with you. None yet.
+                </p>
+              )}
+              {chosenPatient && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-gray-800 space-y-1">
+                  <p><span className="font-medium">Allergies:</span> {chosenPatient.allergies?.length ? chosenPatient.allergies.join(', ') : 'None recorded'}</p>
+                  <p><span className="font-medium">Chronic conditions:</span> {chosenPatient.chronicConditions?.length ? chosenPatient.chronicConditions.join(', ') : 'None recorded'}</p>
+                  <p><span className="font-medium">Blood group:</span> {chosenPatient.bloodGroup || 'Not recorded'}</p>
+                </div>
+              )}
               {selectedPatient && (
                 <button
                   type="button"

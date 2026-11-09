@@ -99,7 +99,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
       {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden hidden md:block">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl animate-float"></div>
         <div className="absolute top-3/4 right-1/4 w-80 h-80 bg-purple-400/10 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
         <div className="absolute top-1/2 left-3/4 w-64 h-64 bg-pink-400/10 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}}></div>
@@ -109,9 +109,9 @@ export default function HomePage() {
       <Navigation />
 
       {/* Hero Section */}
-      <section className="relative pt-20 pb-32 overflow-hidden">
+      <section className="relative pt-28 pb-16 md:pt-32 md:pb-32 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <div className="animate-slide-left">
               <div className="flex items-center space-x-2 mb-6">
                 <Sparkles className="h-6 w-6 text-yellow-400" />
@@ -120,13 +120,13 @@ export default function HomePage() {
                 </span>
               </div>
               
-              <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-8">
+              <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold leading-tight mb-8">
                 <span className="text-gray-900">Your Health,</span>
                 <br />
                 <span className="gradient-text">Our Innovation</span>
               </h1>
               
-              <p className="text-xl text-gray-600 leading-relaxed mb-10">
+              <p className="text-lg md:text-xl text-gray-600 leading-relaxed mb-10">
                 Experience the future of healthcare with CuraSync&apos;s cutting-edge platform. 
                 Connect with top doctors, manage records seamlessly, and take control of your health journey.
               </p>
@@ -171,7 +171,7 @@ export default function HomePage() {
             <div className="relative animate-slide-right">
               <div className="relative">
                 {/* Main hero card */}
-                <div className="bg-white rounded-3xl shadow-2xl p-8 relative z-10 animate-float">
+                <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-8 relative z-10 animate-float">
                   <div className="flex items-center space-x-4 mb-6">
                     <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
                       <Heart className="h-6 w-6 text-white" />
@@ -210,11 +210,11 @@ export default function HomePage() {
                 </div>
                 
                 {/* Floating elements */}
-                <div className="absolute -top-6 -right-6 w-24 h-24 bg-gradient-to-r from-pink-400 to-red-400 rounded-full flex items-center justify-center shadow-lg animate-float" style={{animationDelay: '1s'}}>
+                <div className="absolute -top-6 -right-6 w-24 h-24 bg-gradient-to-r from-pink-400 to-red-400 rounded-full hidden sm:flex items-center justify-center shadow-lg animate-float" style={{animationDelay: '1s'}}>
                   <Star className="h-8 w-8 text-white" />
                 </div>
                 
-                <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full flex items-center justify-center shadow-lg animate-float" style={{animationDelay: '2s'}}>
+                <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full hidden sm:flex items-center justify-center shadow-lg animate-float" style={{animationDelay: '2s'}}>
                   <Zap className="h-6 w-6 text-white" />
                 </div>
               </div>
@@ -224,18 +224,18 @@ export default function HomePage() {
       </section>
 
       {/* Quick Access Cards - Enhanced Design */}
-      <section id="quick-access" className="py-32 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative overflow-hidden">
-        <div className="absolute inset-0">
+      <section id="quick-access" className="py-16 md:py-32 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative overflow-hidden">
+        <div className="absolute inset-0 hidden md:block">
           <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-float"></div>
           <div className="absolute bottom-1/4 right-1/3 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}}></div>
         </div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="text-center mb-16 animate-fade-up">
-            <h2 className="text-5xl md:text-6xl font-bold text-white mb-6">
+          <div className="text-center mb-10 md:mb-16 animate-fade-up">
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold text-white mb-6">
               Choose Your Portal
             </h2>
-            <p className="text-xl text-white/80 max-w-2xl mx-auto">
+            <p className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto">
               Secure, lightning-fast access designed for every healthcare role
             </p>
           </div>
@@ -243,7 +243,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Patient Card */}
             <Link href="/auth/login?role=patient" className="group block animate-fade-up">
-              <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-3xl p-8 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-4 relative overflow-hidden">
+              <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-3xl p-6 md:p-8 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-4 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
                 <div className="relative">
                   <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
@@ -263,7 +263,7 @@ export default function HomePage() {
 
             {/* Doctor Card */}
             <Link href="/auth/login?role=doctor" className="group block animate-fade-up animate-delay-200">
-              <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-3xl p-8 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-4 relative overflow-hidden">
+              <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-3xl p-6 md:p-8 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-4 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
                 <div className="relative">
                   <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
@@ -283,7 +283,7 @@ export default function HomePage() {
 
             {/* Admin Card */}
             <Link href="/auth/login?role=admin" className="group block animate-fade-up animate-delay-400">
-              <div className="bg-gradient-to-br from-purple-500 to-indigo-500 rounded-3xl p-8 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-4 relative overflow-hidden">
+              <div className="bg-gradient-to-br from-purple-500 to-indigo-500 rounded-3xl p-6 md:p-8 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:-translate-y-4 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
                 <div className="relative">
                   <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
@@ -305,13 +305,13 @@ export default function HomePage() {
       </section>
 
       {/* Testimonials Section */}
-      <section id="testimonials" className="py-32 bg-white relative">
+      <section id="testimonials" className="py-16 md:py-32 bg-white relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-20 animate-fade-up">
-            <h2 className="text-5xl md:text-6xl font-bold gradient-text mb-6">
+          <div className="text-center mb-10 md:mb-20 animate-fade-up">
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold gradient-text mb-6">
               Loved by Professionals
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
               See what healthcare professionals and patients say about CuraSync
             </p>
           </div>
@@ -320,7 +320,7 @@ export default function HomePage() {
             {testimonials.map((testimonial, index) => (
               <div 
                 key={index} 
-                className={`bg-gradient-to-br from-gray-50 to-blue-50 rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all duration-500 animate-fade-up animate-delay-${(index + 1) * 200}`}
+                className={`bg-gradient-to-br from-gray-50 to-blue-50 rounded-3xl p-6 md:p-8 shadow-lg hover:shadow-xl transition-all duration-500 animate-fade-up animate-delay-${(index + 1) * 200}`}
               >
                 <div className="flex items-center mb-6">
                   {[...Array(Math.round(testimonial.rating))].map((_, i) => (
@@ -356,7 +356,7 @@ export default function HomePage() {
                     {stat.icon}
                   </div>
                 </div>
-                <div className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <div className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   {stat.number}
                 </div>
                 <div className="text-gray-600 mt-2 font-medium">{stat.label}</div>
@@ -367,18 +367,18 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-32 bg-gradient-to-br from-gray-50 to-blue-50 relative overflow-hidden">
-        <div className="absolute inset-0">
+      <section id="features" className="py-16 md:py-32 bg-gradient-to-br from-gray-50 to-blue-50 relative overflow-hidden">
+        <div className="absolute inset-0 hidden md:block">
           <div className="absolute top-0 left-1/4 w-72 h-72 bg-purple-200/30 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl"></div>
         </div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="text-center mb-20 animate-fade-up">
-            <h2 className="text-5xl md:text-6xl font-bold gradient-text mb-6">
+          <div className="text-center mb-10 md:mb-20 animate-fade-up">
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold gradient-text mb-6">
               Powerful Features
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
               Experience healthcare innovation with cutting-edge tools designed for the modern world.
             </p>
           </div>
@@ -387,7 +387,7 @@ export default function HomePage() {
             {features.map((feature, index) => (
               <div 
                 key={index} 
-                className={`group bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-blue-200 animate-fade-up ${feature.delay} hover:-translate-y-2`}
+                className={`group bg-white rounded-3xl p-6 md:p-8 shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-blue-200 animate-fade-up ${feature.delay} hover:-translate-y-2`}
               >
                 <div className={`w-16 h-16 bg-gradient-to-r ${feature.gradient} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                   {feature.icon}
@@ -484,7 +484,7 @@ export default function HomePage() {
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
               Get in Touch
             </h2>
-            <p className="text-xl text-gray-600">
+            <p className="text-lg md:text-xl text-gray-600">
               Ready to transform your healthcare experience? Contact us today.
             </p>
           </div>

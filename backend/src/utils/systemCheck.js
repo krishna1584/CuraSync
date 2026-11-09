@@ -3,6 +3,8 @@
  * Validates all components and connections
  */
 
+require('dotenv').config();
+
 const mongoose = require('mongoose');
 const { cloudinary } = require('../config/cloudinary');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -349,3 +351,13 @@ module.exports = {
   checkReportModel,
   checkAPIRoutes
 };
+
+// Run directly with: npm run check
+if (require.main === module) {
+  runSystemCheck()
+    .then((passed) => process.exit(passed ? 0 : 1))
+    .catch((error) => {
+      console.error('System check crashed:', error.message);
+      process.exit(1);
+    });
+}

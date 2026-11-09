@@ -1,107 +1,84 @@
-import React from 'react';
-import { X, Bell, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+'use client';
 
-interface Appointment {
-  _id: string;
-  patientId: { name: string; email: string; phone?: string };
-  doctorId: { name: string; specialization?: string };
-  appointmentDate: string;
-  timeSlot: string;
-  status: string;
-  reason: string;
-}
+import { useState } from 'react';
+import { Bell, X } from 'lucide-react';
+import { useSocket } from '@/contexts/SocketContext';
 
-interface Notification {
-  id: number;
-  type: string;
-  message: string;
-  appointment?: Appointment;
-  timestamp: Date;
-}
+const TITLES: Record<string, string> = {
+  new_appointment: 'New appointment',
+  appointment_confirmed: 'Appointment confirmed',
+  status_update: 'Status update',
+  appointment_updated: 'Appointment updated',
+  appointment_created: 'New booking',
+  new_prescription: 'New prescription',
+  report_processed: 'Report ready',
+};
 
-interface NotificationBellProps {
-  notifications: Notification[];
-  onClear: (id: number) => void;
-}
-
-export const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, onClear }) => {
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'new_appointment':
-        return <Bell className="h-4 w-4 text-blue-500" />;
-      case 'appointment_confirmed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'status_update':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'appointment_updated':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'appointment_created':
-        return <AlertTriangle className="h-4 w-4 text-purple-500" />;
-      default:
-        return <Bell className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const getNotificationColor = (type: string) => {
-    switch (type) {
-      case 'new_appointment':
-        return 'bg-blue-500 border-blue-300';
-      case 'appointment_confirmed':
-        return 'bg-green-500 border-green-300';
-      case 'status_update':
-        return 'bg-green-500 border-green-300';
-      case 'appointment_updated':
-        return 'bg-yellow-500 border-yellow-300';
-      case 'appointment_created':
-        return 'bg-purple-500 border-purple-300';
-      default:
-        return 'bg-gray-500 border-gray-300';
-    }
-  };
+// The one notification bell: a count on the icon, and the list opens on tap.
+export function NotificationBell() {
+  const { notifications, clearNotification } = useSocket();
+  const [open, setOpen] = useState(false);
+  const count = notifications.length;
 
   return (
-    <div className="fixed top-4 right-4 space-y-3 z-50 max-w-sm">
-      {notifications.map((notification) => (
-        <div
-          key={notification.id}
-          className={`${getNotificationColor(notification.type)} text-white p-4 rounded-lg shadow-lg border-l-4 animate-slide-in`}
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex items-start space-x-3">
-              {getNotificationIcon(notification.type)}
-              <div className="flex-1">
-                <div className="font-semibold text-sm">
-                  {notification.type === 'new_appointment' && 'New Appointment'}
-                  {notification.type === 'appointment_confirmed' && 'Appointment Confirmed'}
-                  {notification.type === 'status_update' && 'Status Update'}
-                  {notification.type === 'appointment_updated' && 'Appointment Updated'}
-                  {notification.type === 'appointment_created' && 'New Booking Alert'}
-                  {!['new_appointment', 'appointment_confirmed', 'status_update', 'appointment_updated', 'appointment_created'].includes(notification.type) && 'Notification'}
-                </div>
-                <div className="text-sm mt-1 opacity-90">
-                  {notification.message}
-                </div>
-                {notification.appointment && (
-                  <div className="text-xs mt-2 opacity-75 bg-black bg-opacity-20 rounded p-2">
-                    <div><strong>Patient:</strong> {notification.appointment.patientId?.name}</div>
-                    <div><strong>Date:</strong> {new Date(notification.appointment.appointmentDate).toLocaleDateString()}</div>
-                    <div><strong>Time:</strong> {notification.appointment.timeSlot}</div>
-                  </div>
-                )}
-                <div className="text-xs mt-1 opacity-75">
-                  {new Date(notification.timestamp).toLocaleTimeString()}
-                </div>
-              </div>
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-label={count > 0 ? `Notifications, ${count} new` : 'Notifications'}
+        className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+      >
+        <Bell className="h-6 w-6" />
+        {count > 0 && (
+          <span className="absolute right-0.5 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-semibold text-white">
+            {count > 99 ? '99+' : count}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div className="fixed inset-x-2 top-[4.5rem] z-50 flex max-h-[70dvh] flex-col overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-black/5 md:inset-x-auto md:left-[16.5rem] md:top-4 md:w-96">
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+              <h2 className="font-semibold text-gray-900">Notifications</h2>
+              {count > 0 && (
+                <button
+                  type="button"
+                  onClick={() => notifications.forEach((item) => clearNotification(item.id))}
+                  className="text-sm text-blue-600 hover:text-blue-700"
+                >
+                  Clear all
+                </button>
+              )}
             </div>
-            <button
-              onClick={() => onClear(notification.id)}
-              className="text-white hover:text-gray-200 ml-2"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            {count === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-gray-500">You&apos;re all caught up.</p>
+            ) : (
+              <ul className="divide-y divide-gray-100 overflow-y-auto">
+                {notifications.map((item) => (
+                  <li key={item.id} className="flex items-start gap-3 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900">{TITLES[item.type] || 'Notification'}</p>
+                      <p className="mt-0.5 break-words text-sm text-gray-600">{item.message}</p>
+                      <p className="mt-1 text-xs text-gray-400">{new Date(item.timestamp).toLocaleTimeString()}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => clearNotification(item.id)}
+                      aria-label="Dismiss notification"
+                      className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-        </div>
-      ))}
+        </>
+      )}
     </div>
   );
-};
+}

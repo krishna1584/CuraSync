@@ -69,4 +69,18 @@ const sendOtpEmail = (email, otp, name = '') => sendEmail({
   html: `<p>Hello${name ? ` ${escapeHtml(name)}` : ''},</p><p>Your CuraSync verification code is <strong style="font-size:20px;letter-spacing:2px">${escapeHtml(otp)}</strong>.</p><p>It expires in 10 minutes. If you did not create an account, you can ignore this email.</p>`
 });
 
-module.exports = { isEmailConfigured, isEmailVerificationEnabled, sendEmail, sendOtpEmail, escapeHtml };
+const sendPasswordResetEmail = (email, otp, name = '') => sendEmail({
+  to: email,
+  subject: 'Reset your CuraSync password',
+  text: `Hello${name ? ` ${name}` : ''},\n\nYour CuraSync password reset code is ${otp}. It expires in 10 minutes.\n\nIf you did not ask for this, you can ignore this email.`,
+  html: `<p>Hello${name ? ` ${escapeHtml(name)}` : ''},</p><p>Your CuraSync password reset code is <strong style="font-size:20px;letter-spacing:2px">${escapeHtml(otp)}</strong>.</p><p>It expires in 10 minutes. If you did not ask for this, you can ignore this email.</p>`
+});
+
+module.exports = {
+  isEmailConfigured,
+  isEmailVerificationEnabled,
+  sendEmail,
+  sendOtpEmail,
+  sendPasswordResetEmail,
+  escapeHtml
+};

@@ -8,7 +8,7 @@
     "dev": "nodemon src/server.js",
     "lint": "eslint src/**/*.js",
     "test": "jest",
-    "check": "node test-system.js",
+    "check": "node src/utils/systemCheck.js",
     "create-admin": "node scripts/create-admin.js"
   },
   "keywords": [

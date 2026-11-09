@@ -3,7 +3,7 @@ const OTP = require('../models/OTP');
 const { hashPassword, comparePassword, generateToken, verifyToken, generateOTP, authCookieOptions } = require('../utils/auth');
 const { errorDetails } = require('../utils/access');
 const Settings = require('../models/Settings');
-const { isEmailConfigured, isEmailVerificationEnabled, sendOtpEmail } = require('../utils/email');
+const { isEmailConfigured, isEmailVerificationEnabled, sendOtpEmail, sendPasswordResetEmail } = require('../utils/email');
 
 const OTP_TTL_MS = 10 * 60 * 1000;      // codes expire after 10 minutes
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000; // at most one new code per minute
@@ -344,6 +344,109 @@ const resendOTP = async (req, res) => {
   }
 };
 
+// Password reset by emailed code uses the same opt-in as email verification.
+const isPasswordResetByEmailOn = () => isEmailVerificationEnabled() && isEmailConfigured();
+
+// GET /api/auth/options — tells the sign-in pages which optional flows are on.
+const getAuthOptions = (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: { passwordResetByEmail: isPasswordResetByEmailOn() }
+  });
+};
+
+// POST /api/auth/forgot-password
+const forgotPassword = async (req, res) => {
+  try {
+    if (!isPasswordResetByEmailOn()) {
+      return res.status(404).json({ success: false, message: 'Password reset by email is turned off' });
+    }
+
+    const email = normalizeEmail(req.body.email);
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    // Same answer whether or not the account exists, so emails cannot be probed.
+    const genericResponse = () => res.status(200).json({
+      success: true,
+      message: 'If an account exists for this email, a reset code has been sent.'
+    });
+
+    const user = await User.findOne({ email });
+    if (!user) return genericResponse();
+
+    const recent = await OTP.findOne({
+      email,
+      type: 'password-reset',
+      createdAt: { $gt: new Date(Date.now() - OTP_RESEND_COOLDOWN_MS) }
+    });
+    if (recent) return genericResponse();
+
+    const otp = generateOTP();
+    await OTP.deleteMany({ email, type: 'password-reset' });
+    await OTP.create({ email, otp, type: 'password-reset', expiresAt: new Date(Date.now() + OTP_TTL_MS) });
+    await sendPasswordResetEmail(email, otp, user.name);
+
+    return genericResponse();
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', ...errorDetails(error) });
+  }
+};
+
+// POST /api/auth/reset-password
+const resetPassword = async (req, res) => {
+  try {
+    if (!isPasswordResetByEmailOn()) {
+      return res.status(404).json({ success: false, message: 'Password reset by email is turned off' });
+    }
+
+    const email = normalizeEmail(req.body.email);
+    const otp = String(req.body.otp || '').trim();
+    const { newPassword } = req.body;
+
+    if (!email || !otp || typeof newPassword !== 'string') {
+      return res.status(400).json({ success: false, message: 'Email, code and new password are required' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+
+    const invalid = () => res.status(400).json({ success: false, message: 'Invalid or expired code' });
+
+    const otpRecord = await OTP.findOne({
+      email,
+      type: 'password-reset',
+      isUsed: false,
+      expiresAt: { $gt: new Date() }
+    }).sort({ createdAt: -1 });
+
+    if (!otpRecord) return invalid();
+
+    if (otpRecord.otp !== otp) {
+      otpRecord.attempts += 1;
+      if (otpRecord.attempts >= OTP_MAX_ATTEMPTS) {
+        await otpRecord.deleteOne();
+        return res.status(400).json({ success: false, message: 'Too many wrong attempts. Please request a new code.' });
+      }
+      await otpRecord.save();
+      return invalid();
+    }
+
+    const user = await User.findOneAndUpdate({ email }, { password: await hashPassword(newPassword) });
+    if (!user) return invalid();
+
+    otpRecord.isUsed = true;
+    await otpRecord.save();
+
+    res.status(200).json({ success: true, message: 'Password changed. You can now sign in.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', ...errorDetails(error) });
+  }
+};
+
 const verify = async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
@@ -394,5 +497,8 @@ module.exports = {
   verify,
   verifyEmail,
   resendOTP,
-  changePassword
+  changePassword,
+  getAuthOptions,
+  forgotPassword,
+  resetPassword
 };

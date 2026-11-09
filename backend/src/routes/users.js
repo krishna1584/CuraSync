@@ -6,6 +6,7 @@ const {
   getPatients,
   getDoctors,
   updateUser,
+  resetUserPassword,
   deleteUser
 } = require('../controllers/userController');
 const auth = require('../middleware/auth');
@@ -22,6 +23,7 @@ router.get('/patients', getPatients);                         // GET /api/users/
 router.get('/doctors', getDoctors);                           // GET /api/users/doctors
 router.get('/:id', getUserById);                              // GET /api/users/:id
 router.put('/:id', updateUser);                               // PUT /api/users/:id (self or admin)
+router.post('/:id/reset-password', requireRoles('admin'), resetUserPassword); // POST /api/users/:id/reset-password
 router.delete('/:id', requireRoles('admin'), deleteUser);     // DELETE /api/users/:id (admin only)
 
 module.exports = router;

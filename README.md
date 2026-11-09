@@ -5,125 +5,92 @@ A full-stack hospital management system built with Next.js (Frontend) and Expres
 ## Project Structure
 
 ```
-curasync-hospital-management/
-├── frontend/          # Next.js frontend application
-├── backend/           # Express.js backend API
-├── package.json       # Root package.json for managing both apps
-└── README.md         # This file
+CuraSync/
+├── frontend/   # Next.js app (run it from this folder)
+├── backend/    # Express API (run it from this folder)
+└── README.md
 ```
+
+The two apps are separate: each has its own `package.json` and is installed and started from its own folder.
 
 ## Prerequisites
 
-- Node.js >= 16.0.0
-- npm >= 8.0.0
-- MongoDB (local or cloud instance)
+- Node.js 18 or newer
+- A MongoDB database (local or Atlas)
+- A Cloudinary account, for report uploads
+- A Gemini API key, for reading values out of uploaded reports (optional)
 
 ## Quick Start
 
-### 1. Install Dependencies
+### 1. Install dependencies
 
 ```bash
-# Install all dependencies for both frontend and backend
-npm run install-all
+cd backend
+npm install
 ```
 
-### 2. Environment Setup
-
-#### Backend Configuration
-Create a `.env` file in the `backend/` directory:
 ```bash
-cp backend/.env.example backend/.env
+cd frontend
+npm install
 ```
 
-Update the environment variables in `backend/.env`:
+### 2. Configure the backend
+
+Copy `backend/.env.example` to `backend/.env` and fill it in. `MONGODB_URI` and `JWT_SECRET` are required; the server will not start without a real `JWT_SECRET`.
+
+Email is optional and off by default, so accounts can use made-up addresses such as `test1@gmail.com`. Set `EMAIL_VERIFICATION_ENABLED=true` and the `EMAIL_*` values to turn on verification codes and password reset by email.
+
+### 3. Configure the frontend
+
+Create `frontend/.env.local` with the backend's address. It works with or without a trailing `/api`:
+
 ```env
-# Server Configuration
-PORT=5000
-NODE_ENV=development
-
-# Frontend URL
-FRONTEND_URL=http://localhost:3000
-
-# Database Configuration
-MONGODB_URI=mongodb://localhost:27017/cura-sync-hospital
-
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-JWT_EXPIRE=30d
-
-# Email Configuration
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASS=your-email-password
-
-# Cloudinary Configuration
-CLOUDINARY_CLOUD_NAME=your-cloudinary-name
-CLOUDINARY_API_KEY=your-cloudinary-api-key
-CLOUDINARY_API_SECRET=your-cloudinary-api-secret
+NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
-#### Frontend Configuration
-The frontend environment is already configured in `frontend/.env.local`:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
-NEXT_PUBLIC_FRONTEND_URL=http://localhost:3000
+`NEXT_PUBLIC_SOCKET_URL` is optional and defaults to the same address.
+
+### 4. Create the first admin
+
+Run this from the `backend` folder:
+
+```bash
+npm run create-admin -- "Admin Name" admin@hospital.com "a-strong-password"
 ```
 
-### 3. Development
+Admins create doctor and staff accounts from the admin dashboard. Patients can sign up themselves.
 
-#### Start Both Applications (Recommended)
+### 5. Start both apps
+
+In one terminal, from `backend`:
+
 ```bash
 npm run dev
 ```
-This starts both the backend (port 5000) and frontend (port 3000) concurrently.
 
-#### Start Applications Individually
-```bash
-# Start only the backend
-npm run dev:backend
-
-# Start only the frontend
-npm run dev:frontend
-```
-
-### 4. Production Build
+In another terminal, from `frontend`:
 
 ```bash
-# Build the frontend for production
-npm run build
-
-# Start production servers
-npm run start
+npm run dev
 ```
-
-## API Integration
-
-The frontend and backend are integrated using:
-
-1. **Next.js Rewrites**: API calls starting with `/api` are automatically proxied to the backend server
-2. **CORS Configuration**: Backend is configured to accept requests from the frontend
-3. **Environment Variables**: API URLs are configurable via environment variables
-
-### API Base URL
-- Development: `http://localhost:5000/api`
-- Frontend calls use relative paths: `/api/auth/login`, `/api/users`, etc.
 
 ## Available Scripts
 
-### Root Level Scripts
-- `npm run install-all` - Install dependencies for both apps
-- `npm run dev` - Start both apps in development mode
-- `npm run start` - Start both apps in production mode
-- `npm run build` - Build frontend for production
-- `npm run lint` - Lint both applications
-- `npm run clean` - Clean node_modules and build files
+### Backend (`backend/`)
+- `npm run dev` - Start with auto-reload
+- `npm start` - Start for production
+- `npm run create-admin -- "Name" email "password"` - Create or promote an admin
+- `npm run check` - Check the database, Cloudinary and Gemini connections
 
-### Individual App Scripts
-- `npm run dev:frontend` - Start frontend only
-- `npm run dev:backend` - Start backend only
-- `npm run start:frontend` - Start frontend in production
-- `npm run start:backend` - Start backend in production
+### Frontend (`frontend/`)
+- `npm run dev` - Start the development server
+- `npm run build` - Build for production
+- `npm start` - Serve the production build
+- `npm run lint` - Run ESLint
+
+## API Integration
+
+The browser calls the backend directly. Frontend code gets the address from `API_URL` in `frontend/src/lib/config.ts`, and the backend only accepts browser requests from `FRONTEND_URL`, `ALLOWED_ORIGINS` and the origins listed in `backend/src/config/origins.js`.
 
 ## Application URLs
 
@@ -134,7 +101,7 @@ The frontend and backend are integrated using:
 ## Features
 
 ### Frontend (Next.js)
-- User Authentication (Login/Signup/OTP Verification)
+- User Authentication (Login/Signup, optional email verification)
 - Patient Dashboard
 - Doctor Dashboard
 - Admin Panel
@@ -155,12 +122,10 @@ The frontend and backend are integrated using:
 ## Technology Stack
 
 ### Frontend
-- **Framework**: Next.js 15.5.3
+- **Framework**: Next.js 15
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS 4
-- **Forms**: React Hook Form + Zod
 - **UI Components**: Lucide React
-- **Charts**: Recharts
 - **Notifications**: React Hot Toast
 
 ### Backend
@@ -178,7 +143,8 @@ The application uses MongoDB with the following collections:
 - Users (Patients, Doctors, Admins)
 - Appointments
 - Lab Tests
-- Medical Records
+- Prescriptions
+- Settings
 - Reports
 - OTPs
 
@@ -195,7 +161,7 @@ The application uses MongoDB with the following collections:
 ## Development Guidelines
 
 1. **Environment Variables**: Never commit `.env` files. Use `.env.example` files as templates.
-2. **API Calls**: Use the provided `apiCall` utility in `frontend/src/lib/api.ts` for consistent API interactions.
+2. **API Calls**: Build backend URLs from `API_URL` in `frontend/src/lib/config.ts`.
 3. **Error Handling**: Both frontend and backend have centralized error handling.
 4. **Code Style**: Use the provided ESLint configurations.
 

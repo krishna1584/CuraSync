@@ -16,12 +16,10 @@ import {
   Heart,
   Wifi,
   WifiOff,
-  Bell,
   FileText,
   Activity
 } from 'lucide-react';
 import { useSocket } from '../../../contexts/SocketContext';
-import { NotificationBell } from '../../../components/NotificationBell';
 import { logout } from '@/lib/auth';
 
 interface Report {
@@ -216,7 +214,7 @@ export default function DoctorDashboard() {
   const socketRegistered = useRef(false);
 
   // Initialize WebSocket connection
-  const { socket, isConnected, notifications, registerUser, clearNotification } = useSocket();
+  const { socket, isConnected, registerUser } = useSocket();
 
   useEffect(() => {
     checkAuth();
@@ -375,7 +373,6 @@ export default function DoctorDashboard() {
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Notifications */}
-        <NotificationBell notifications={notifications} onClear={clearNotification} />
 
         {/* Header */}
         <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -388,12 +385,6 @@ export default function DoctorDashboard() {
                 {isConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
                 {isConnected ? 'Live Notifications' : 'Offline'}
               </div>
-              {notifications.length > 0 && (
-                <div className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs flex items-center gap-1">
-                  <Bell className="h-3 w-3" />
-                  {notifications.length} New
-                </div>
-              )}
             </div>
             <p className="text-gray-600">Welcome, Dr. {user?.name}! Manage your patients and medical practice.</p>
           </div>

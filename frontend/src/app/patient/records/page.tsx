@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { API_URL } from '@/lib/config';
 import { 
   FileText, 
-  Upload, 
   Download, 
   Search,
   Filter,
@@ -28,6 +27,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { logout } from '@/lib/auth';
+import FileDropZone from '@/components/FileDropZone';
+import { REPORT_TYPES, todayLocalDate } from '@/lib/reportFiles';
 
 interface UserData {
   _id: string;
@@ -91,19 +92,6 @@ interface MedicalReport {
   uploadedBy?: { name: string; role: string };
   reviewedBy?: { name: string; role: string };
 }
-
-// Must match the report types the backend accepts.
-const REPORT_TYPES = [
-  'Blood Test',
-  'Urine Test',
-  'X-Ray',
-  'MRI',
-  'CT Scan',
-  'Ultrasound',
-  'ECG',
-  'Pathology',
-  'Other'
-];
 
 const reportStatus = (report: MedicalReport) => {
   if (report.status === 'reviewed') return { label: 'Reviewed by doctor', className: 'bg-green-100 text-green-800' };
@@ -405,7 +393,7 @@ export default function MedicalRecords() {
         resetUploadForm();
         fetchReports();
       } else {
-        toast.error(data.message || data.error || 'Upload failed');
+        toast.error(data.message || 'Upload failed');
       }
     } catch (error) {
       console.error('Upload error:', error);
@@ -449,7 +437,7 @@ export default function MedicalRecords() {
 
         {/* Tabs */}
         <div className="mb-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
+          <nav className="-mb-px flex overflow-x-auto whitespace-nowrap space-x-8">
             <button
               onClick={() => setActiveTab('profile')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -997,7 +985,7 @@ export default function MedicalRecords() {
         {/* Upload Modal */}
         {showUploadModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90dvh] overflow-y-auto">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Medical Record</h3>
               
               <div className="space-y-4">
@@ -1037,6 +1025,7 @@ export default function MedicalRecords() {
                   </label>
                   <input
                     type="date"
+                    max={todayLocalDate()}
                     value={uploadFormData.date}
                     onChange={(e) => setUploadFormData({ ...uploadFormData, date: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1044,46 +1033,8 @@ export default function MedicalRecords() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    File {selectedFile && <span className="text-green-600 text-sm">✓ {selectedFile.name}</span>}
-                  </label>
-                  <label htmlFor="file-upload" className="cursor-pointer">
-                    <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                      selectedFile ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-blue-400'
-                    }`}>
-                      {selectedFile ? (
-                        <>
-                          <FileText className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                          <p className="text-sm text-green-600 font-medium">{selectedFile.name}</p>
-                          <p className="text-xs text-gray-500 mt-1">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
-                          <p className="text-xs text-blue-600 mt-2 cursor-pointer hover:underline">Click to change file</p>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600">Drop files here or click to browse</p>
-                          <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG up to 10MB</p>
-                        </>
-                      )}
-                    </div>
-                  </label>
-                  <input
-                    id="file-upload"
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 10 * 1024 * 1024) {
-                          toast.error('File size must be less than 10MB');
-                          return;
-                        }
-                        setSelectedFile(file);
-                        toast.success('File selected: ' + file.name);
-                      }
-                    }}
-                  />
+                  <p className="block text-sm font-medium text-gray-700 mb-2">File</p>
+                  <FileDropZone file={selectedFile} onFileChange={setSelectedFile} disabled={uploading} />
                 </div>
               </div>
               

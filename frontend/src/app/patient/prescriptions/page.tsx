@@ -288,7 +288,7 @@ export default function PatientPrescriptions() {
                       {selectedPrescription.medications.map((med, idx) => (
                         <div key={idx} className="bg-gray-50 rounded-lg p-3">
                           <h4 className="font-medium text-gray-900 mb-2">{med.name}</h4>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                             <div>
                               <span className="text-gray-600">Dosage:</span>
                               <p className="font-medium text-gray-900">{med.dosage}</p>
@@ -320,7 +320,7 @@ export default function PatientPrescriptions() {
                         <Activity className="h-5 w-5 text-blue-600" />
                         Vital Signs
                       </h3>
-                      <div className="ml-7 grid grid-cols-2 gap-3 text-sm">
+                      <div className="ml-7 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                         {selectedPrescription.vitalSigns.bloodPressure && (
                           <div>
                             <span className="text-gray-600">Blood Pressure:</span>

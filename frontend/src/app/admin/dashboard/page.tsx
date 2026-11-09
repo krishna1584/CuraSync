@@ -15,11 +15,11 @@ import {
   AlertCircle,
   UserPlus,
   Trash2,
+  KeyRound,
   X
 } from 'lucide-react';
 import { API_URL } from '@/lib/config';
 import { useSocket } from '../../../contexts/SocketContext';
-import { NotificationBell } from '../../../components/NotificationBell';
 import { logout } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
 
@@ -90,9 +90,11 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [newUser, setNewUser] = useState({ ...EMPTY_NEW_USER });
+  const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
+  const [newPassword, setNewPassword] = useState('');
   const router = useRouter();
   
-  const { socket, registerUser, notifications, clearNotification } = useSocket();
+  const { socket, registerUser } = useSocket();
 
   const checkAuth = useCallback(async () => {
     const token = localStorage.getItem('token');
@@ -293,6 +295,34 @@ export default function AdminDashboard() {
     }
   };
 
+  const submitPasswordReset = async () => {
+    if (!resetTarget) return;
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    try {
+      const response = await fetch(`${API_URL}/users/${resetTarget.id}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ newPassword }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok && result.success) {
+        toast.success(`Password changed for ${resetTarget.name}`);
+        setResetTarget(null);
+        setNewPassword('');
+      } else {
+        toast.error(result.message || 'Failed to reset password');
+      }
+    } catch {
+      toast.error('Failed to reset password');
+    }
+  };
+
   const handleLogout = () => {
     logout();
   };
@@ -351,7 +381,6 @@ export default function AdminDashboard() {
               <p className="mt-1 text-sm text-gray-500">Hospital Management System</p>
             </div>
             <div className="mt-4 flex md:mt-0 md:ml-4 items-center gap-4">
-              <NotificationBell notifications={notifications} onClear={clearNotification} />
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-700">Welcome, {user?.name}</span>
                 <button
@@ -461,6 +490,14 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{patient.phone || 'N/A'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                         <button
+                          onClick={() => setResetTarget({ id: patient._id, name: patient.name })}
+                          className="text-blue-600 hover:text-blue-800 mr-3"
+                          aria-label={`Reset password for ${patient.name}`}
+                          title="Reset password"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleDeleteUser(patient._id, 'patient')}
                           className="text-red-600 hover:text-red-900"
                         >
@@ -503,6 +540,14 @@ export default function AdminDashboard() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{doctor.specialty || 'General'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <button
+                          onClick={() => setResetTarget({ id: doctor._id, name: doctor.name })}
+                          className="text-blue-600 hover:text-blue-800 mr-3"
+                          aria-label={`Reset password for ${doctor.name}`}
+                          title="Reset password"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </button>
+                        <button
                         onClick={() => handleDeleteUser(doctor._id, 'doctor')}
                         className="text-red-600 hover:text-red-900"
                       >
@@ -525,9 +570,41 @@ export default function AdminDashboard() {
       </div>
 
       {/* Add User Modal */}
+      {resetTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 max-h-[90dvh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Reset password</h3>
+            <p className="text-sm text-gray-500 mb-4">Set a new password for {resetTarget.name}.</p>
+            <label htmlFor="adminNewPassword" className="block text-sm font-medium text-gray-700 mb-1">New password</label>
+            <input
+              id="adminNewPassword"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setResetTarget(null); setNewPassword(''); }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitPasswordReset}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Save password
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAddUserModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Add New User</h3>
               <button onClick={() => setShowAddUserModal(false)}>
