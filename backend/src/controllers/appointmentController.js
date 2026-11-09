@@ -1,7 +1,84 @@
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 
-const isHospitalStaff = (role) => ['admin', 'nurse', 'receptionist'].includes(role);
+const Settings = require('../models/Settings');
+const { isHospitalStaff, pick, errorDetails } = require('../utils/access');
+const { toDayStart, dayRange, isPastDay, slotsForDoctor, bookedSlots } = require('../utils/scheduling');
+const { isEmailConfigured, sendEmail, escapeHtml } = require('../utils/email');
+
+const APPOINTMENT_EMAIL_SUBJECTS = {
+  booked: 'Your appointment is booked',
+  cancelled: 'Your appointment was cancelled',
+  completed: 'Your appointment is complete',
+  'no-show': 'You missed your appointment'
+};
+
+// Email the patient about their appointment when the admin turned appointment emails on.
+// Runs in the background and never blocks or fails the request.
+const emailPatientAboutAppointment = (patient, doctor, appointment, event) => {
+  if (!patient || !patient.email || !APPOINTMENT_EMAIL_SUBJECTS[event] || !isEmailConfigured()) return;
+  // Respect the patient's own opt-out.
+  if (patient.notificationPreferences && patient.notificationPreferences.appointmentEmails === false) return;
+
+  (async () => {
+    const settings = await Settings.getGlobal();
+    if (!settings.emailNotifications) return;
+
+    const when = `${new Date(appointment.appointmentDate).toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' })} at ${appointment.timeSlot}`;
+    const doctorName = doctor && doctor.name ? `Dr. ${doctor.name}` : 'your doctor';
+    const lines = {
+      booked: `Your appointment with ${doctorName} is booked for ${when}.`,
+      cancelled: `Your appointment with ${doctorName} on ${when} has been cancelled.`,
+      completed: `Your appointment with ${doctorName} on ${when} is marked as complete.`,
+      'no-show': `Your appointment with ${doctorName} on ${when} was marked as missed. Please book again if you still need to be seen.`
+    };
+    const hospital = settings.hospitalName || 'CuraSync';
+
+    await sendEmail({
+      to: patient.email,
+      subject: `${APPOINTMENT_EMAIL_SUBJECTS[event]} – ${hospital}`,
+      text: `Hello ${patient.name || ''},\n\n${lines[event]}\n\n${hospital}`,
+      html: `<p>Hello ${escapeHtml(patient.name || '')},</p><p>${escapeHtml(lines[event])}</p><p>${escapeHtml(hospital)}</p>`
+    });
+  })().catch((error) => console.error('Appointment email failed:', error.message));
+};
+
+// GET /api/appointments/available-slots?doctorId=...&date=YYYY-MM-DD
+// Returns every offered slot with whether it can still be booked (no patient details).
+const getAvailableSlots = async (req, res) => {
+  try {
+    const { doctorId, date } = req.query;
+    const dayStart = toDayStart(date);
+
+    if (!doctorId || !dayStart) {
+      return res.status(400).json({ success: false, message: 'doctorId and date (YYYY-MM-DD) are required' });
+    }
+
+    const doctor = await User.findById(doctorId).select('role availability');
+    if (!doctor || doctor.role !== 'doctor') {
+      return res.status(404).json({ success: false, message: 'Doctor not found' });
+    }
+
+    const { slots, reason } = slotsForDoctor(doctor, dayStart);
+    const taken = new Set(await bookedSlots(doctor._id, dayStart));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        date: dayStart.toISOString().slice(0, 10),
+        reason: reason || null,
+        slots: slots.map((time) => ({ time, available: !taken.has(time) }))
+      }
+    });
+  } catch (error) {
+    console.error('Get available slots error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', ...errorDetails(error) });
+  }
+};
+
+// Fields each role may change on an existing appointment.
+const DOCTOR_UPDATABLE_FIELDS = ['status', 'notes', 'prescription'];
+const STAFF_UPDATABLE_FIELDS = ['status', 'notes', 'appointmentDate', 'timeSlot', 'type', 'reason', 'doctorId'];
 
 const canAccessAppointment = (appointment, user) => {
   if (isHospitalStaff(user.role)) return true;
@@ -53,7 +130,7 @@ const getAllAppointments = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -87,7 +164,7 @@ const getAppointmentById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -138,31 +215,66 @@ const createAppointment = async (req, res) => {
       });
     }
 
-    // Check for conflicting appointments
-    const conflictingAppointment = await Appointment.findOne({
-      doctorId,
-      appointmentDate: new Date(appointmentDate),
-      timeSlot,
-      status: { $in: ['scheduled', 'confirmed'] }
-    });
+    const dayStart = toDayStart(appointmentDate);
+    if (!dayStart || isPastDay(dayStart)) {
+      return res.status(400).json({ success: false, message: 'Please choose a valid future date' });
+    }
 
-    if (conflictingAppointment) {
+    // The slot must be one the doctor actually offers that day...
+    const { slots, reason: unavailableReason } = slotsForDoctor(doctor, dayStart);
+    if (!slots.includes(timeSlot)) {
       return res.status(400).json({
         success: false,
-        message: 'Doctor is not available at this time slot'
+        message: unavailableReason || 'The doctor is not available at this time'
       });
     }
 
-    // Create appointment
-    const appointment = await Appointment.create({
-      patientId,
-      doctorId,
-      appointmentDate: new Date(appointmentDate),
+    // ...and not already booked by someone else (same calendar day, same slot).
+    const taken = await bookedSlots(doctor._id, dayStart);
+    if (taken.includes(timeSlot)) {
+      return res.status(409).json({
+        success: false,
+        message: 'This time slot was just booked. Please pick another one.'
+      });
+    }
+
+    // Patients can't hold two appointments at the same time.
+    const patientClash = await Appointment.exists({
+      patientId: patient._id,
+      appointmentDate: dayRange(dayStart),
       timeSlot,
-      reason,
-      type,
       status: 'scheduled'
     });
+    if (patientClash) {
+      return res.status(409).json({
+        success: false,
+        message: 'You already have an appointment at this time'
+      });
+    }
+
+    let appointment;
+    try {
+      appointment = await Appointment.create({
+        patientId: patient._id,
+        doctorId: doctor._id,
+        appointmentDate: dayStart,
+        timeSlot,
+        reason,
+        type,
+        status: 'scheduled'
+      });
+    } catch (createError) {
+      // The unique index catches two bookings racing for the same slot.
+      if (createError && createError.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message: 'This time slot was just booked. Please pick another one.'
+        });
+      }
+      throw createError;
+    }
+
+    emailPatientAboutAppointment(patient, doctor, appointment, 'booked');
 
     // Populate the created appointment
     const populatedAppointment = await Appointment.findById(appointment._id)
@@ -258,7 +370,7 @@ const createAppointment = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -267,10 +379,6 @@ const createAppointment = async (req, res) => {
 const updateAppointment = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
-
-    // Remove fields that shouldn't be updated directly
-    delete updates._id;
 
     const existingAppointment = await Appointment.findById(id);
 
@@ -281,15 +389,61 @@ const updateAppointment = async (req, res) => {
       });
     }
 
-    if (!canAccessAppointment(existingAppointment, req.user) || (req.user.role === 'patient' && updates.status !== 'cancelled')) {
+    if (!canAccessAppointment(existingAppointment, req.user)) {
       return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    // Each role may only change specific fields.
+    let updates;
+    if (req.user.role === 'patient') {
+      if (req.body.status !== 'cancelled') {
+        return res.status(403).json({ success: false, message: 'Patients can only cancel appointments' });
+      }
+      updates = { status: 'cancelled' };
+    } else if (req.user.role === 'doctor') {
+      updates = pick(req.body, DOCTOR_UPDATABLE_FIELDS);
+    } else {
+      updates = pick(req.body, STAFF_UPDATABLE_FIELDS);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: 'No updatable fields provided' });
+    }
+
+    if (updates.status && existingAppointment.status !== 'scheduled' && updates.status !== existingAppointment.status) {
+      return res.status(400).json({
+        success: false,
+        message: `This appointment is already ${existingAppointment.status}`
+      });
+    }
+
+    // Rescheduling (staff): validate the new doctor/date/slot like a new booking.
+    if (updates.doctorId || updates.appointmentDate || updates.timeSlot) {
+      const doctor = await User.findById(updates.doctorId || existingAppointment.doctorId);
+      if (!doctor || doctor.role !== 'doctor') {
+        return res.status(404).json({ success: false, message: 'Doctor not found' });
+      }
+      const dayStart = toDayStart(updates.appointmentDate || existingAppointment.appointmentDate);
+      if (!dayStart) {
+        return res.status(400).json({ success: false, message: 'Invalid date' });
+      }
+      const timeSlot = updates.timeSlot || existingAppointment.timeSlot;
+      const { slots, reason: unavailableReason } = slotsForDoctor(doctor, dayStart);
+      if (!slots.includes(timeSlot)) {
+        return res.status(400).json({ success: false, message: unavailableReason || 'The doctor is not available at this time' });
+      }
+      const taken = await bookedSlots(doctor._id, dayStart, existingAppointment._id);
+      if (taken.includes(timeSlot)) {
+        return res.status(409).json({ success: false, message: 'That time slot is already booked' });
+      }
+      updates.appointmentDate = dayStart;
     }
 
     const appointment = await Appointment.findByIdAndUpdate(
       id,
       updates,
       { new: true, runValidators: true }
-    ).populate('patientId', 'name email phone')
+    ).populate('patientId', 'name email phone notificationPreferences')
      .populate('doctorId', 'name specialization');
 
     if (!appointment) {
@@ -297,6 +451,10 @@ const updateAppointment = async (req, res) => {
         success: false,
         message: 'Appointment not found'
       });
+    }
+
+    if (updates.status && updates.status !== existingAppointment.status) {
+      emailPatientAboutAppointment(appointment.patientId, appointment.doctorId, appointment, updates.status);
     }
 
     // Send real-time notification for appointment updates
@@ -342,7 +500,7 @@ const updateAppointment = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -376,7 +534,7 @@ const deleteAppointment = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -427,7 +585,7 @@ const getAppointmentsByPatient = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -459,7 +617,7 @@ const getAppointmentsByDoctor = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -502,12 +660,13 @@ const getMyAppointments = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
 
 module.exports = {
+  getAvailableSlots,
   getAllAppointments,
   getAppointmentById,
   createAppointment,

@@ -13,7 +13,6 @@ import {
   Calendar,
   User,
   Eye,
-  Trash2,
   Plus,
   Activity,
   Mail,
@@ -28,6 +27,7 @@ import {
   Droplet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { logout } from '@/lib/auth';
 
 interface UserData {
   _id: string;
@@ -76,9 +76,48 @@ interface Appointment {
   notes?: string;
 }
 
+// Shape returned by GET /api/reports/my-reports
+interface MedicalReport {
+  _id: string;
+  reportTitle: string;
+  reportType: string;
+  testDate: string;
+  createdAt: string;
+  cloudinaryUrl: string;
+  fileType?: string;
+  aiProcessed: boolean;
+  aiProcessingError?: string;
+  status: 'pending' | 'processed' | 'reviewed' | 'archived';
+  uploadedBy?: { name: string; role: string };
+  reviewedBy?: { name: string; role: string };
+}
+
+// Must match the report types the backend accepts.
+const REPORT_TYPES = [
+  'Blood Test',
+  'Urine Test',
+  'X-Ray',
+  'MRI',
+  'CT Scan',
+  'Ultrasound',
+  'ECG',
+  'Pathology',
+  'Other'
+];
+
+const reportStatus = (report: MedicalReport) => {
+  if (report.status === 'reviewed') return { label: 'Reviewed by doctor', className: 'bg-green-100 text-green-800' };
+  if (report.aiProcessed) return { label: 'Values extracted', className: 'bg-blue-100 text-blue-800' };
+  if (report.aiProcessingError) return { label: 'Could not extract values', className: 'bg-yellow-100 text-yellow-800' };
+  return { label: 'Processing', className: 'bg-gray-100 text-gray-700' };
+};
+
 export default function MedicalRecords() {
   const [user, setUser] = useState<UserData | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [reports, setReports] = useState<MedicalReport[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'profile' | 'appointments' | 'medical'>('profile');
   const [searchTerm, setSearchTerm] = useState('');
@@ -89,7 +128,7 @@ export default function MedicalRecords() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadFormData, setUploadFormData] = useState({
     recordName: '',
-    category: 'Lab Reports',
+    category: 'Blood Test',
     date: ''
   });
   const [editFormData, setEditFormData] = useState<EditFormData>({
@@ -115,6 +154,7 @@ export default function MedicalRecords() {
   useEffect(() => {
     if (user) {
       fetchAppointments();
+      fetchReports();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -157,6 +197,29 @@ export default function MedicalRecords() {
     }
   };
 
+  const fetchReports = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${API_URL}/reports/my-reports`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setReports(Array.isArray(result.data) ? result.data : []);
+      } else {
+        toast.error('Could not load your medical documents');
+      }
+    } catch (error) {
+      console.error('Failed to fetch reports:', error);
+      toast.error('Could not load your medical documents');
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
   const fetchAppointments = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -171,8 +234,14 @@ export default function MedicalRecords() {
 
       if (response.ok) {
         const result = await response.json();
-        const appointmentsData = result.data || result;
-        setAppointments(appointmentsData);
+        const raw: Array<Record<string, unknown>> = Array.isArray(result.data) ? result.data : [];
+        // The API returns { doctor, date, time }; this page uses the model's field names.
+        setAppointments(raw.map((item) => ({
+          ...item,
+          doctorId: (item.doctorId || item.doctor) as Appointment['doctorId'],
+          appointmentDate: (item.appointmentDate || item.date) as string,
+          timeSlot: (item.timeSlot || item.time) as string,
+        }) as Appointment));
       }
     } catch (error) {
       console.error('Failed to fetch appointments:', error);
@@ -180,8 +249,7 @@ export default function MedicalRecords() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    router.push('/auth/login');
+    logout();
   };
 
   const handleEditClick = () => {
@@ -278,103 +346,73 @@ export default function MedicalRecords() {
     }
   };
 
-  const categories = [
-    'All Records',
-    'Lab Reports',
-    'Imaging',
-    'Prescriptions',
-    'Discharge Summary',
-    'Vaccination Records',
-    'Other Documents'
-  ];
+  const categories = ['All Records', ...REPORT_TYPES];
 
-  const records = [
-    {
-      id: 1,
-      name: 'Complete Blood Count (CBC)',
-      category: 'Lab Reports',
-      date: '2024-01-15',
-      doctor: 'Dr. Sarah Johnson',
-      hospital: 'CuraSync Main Hospital',
-      size: '2.1 MB',
-      status: 'Normal',
-      type: 'pdf'
-    },
-    {
-      id: 2,
-      name: 'Chest X-Ray',
-      category: 'Imaging',
-      date: '2024-01-10',
-      doctor: 'Dr. Michael Chen',
-      hospital: 'CuraSync North Branch',
-      size: '8.5 MB',
-      status: 'Clear',
-      type: 'image'
-    },
-    {
-      id: 3,
-      name: 'Cardiology Consultation',
-      category: 'Prescriptions',
-      date: '2024-01-08',
-      doctor: 'Dr. Sarah Johnson',
-      hospital: 'CuraSync Main Hospital',
-      size: '1.2 MB',
-      status: 'Follow-up Required',
-      type: 'pdf'
-    },
-    {
-      id: 4,
-      name: 'Lipid Profile',
-      category: 'Lab Reports',
-      date: '2024-01-05',
-      doctor: 'Dr. Emily Rodriguez',
-      hospital: 'CuraSync Main Hospital',
-      size: '1.8 MB',
-      status: 'Elevated',
-      type: 'pdf'
-    },
-    {
-      id: 5,
-      name: 'MRI Brain Scan',
-      category: 'Imaging',
-      date: '2023-12-28',
-      doctor: 'Dr. James Wilson',
-      hospital: 'CuraSync Neuro Center',
-      size: '25.3 MB',
-      status: 'Normal',
-      type: 'image'
-    }
-  ];
-
-  const filteredRecords = records.filter(record => {
-    const matchesSearch = record.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         record.doctor.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredRecords = reports.filter(report => {
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = report.reportTitle.toLowerCase().includes(term) ||
+                         report.reportType.toLowerCase().includes(term) ||
+                         (report.uploadedBy?.name || '').toLowerCase().includes(term);
     const matchesCategory = selectedCategory === '' || selectedCategory === 'All Records' ||
-                           record.category === selectedCategory;
+                           report.reportType === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'normal':
-      case 'clear':
-        return 'bg-green-100 text-green-800';
-      case 'elevated':
-      case 'follow-up required':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'abnormal':
-      case 'critical':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getFileIcon = (type: string) => {
-    if (type === 'image') {
+  const getFileIcon = (fileType?: string) => {
+    if (fileType?.startsWith('image/')) {
       return <Eye className="h-5 w-5" />;
     }
     return <FileText className="h-5 w-5" />;
+  };
+
+  const resetUploadForm = () => {
+    setShowUploadModal(false);
+    setSelectedFile(null);
+    setUploadFormData({ recordName: '', category: 'Blood Test', date: '' });
+  };
+
+  const handleUploadRecord = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a file');
+      return;
+    }
+    if (!uploadFormData.recordName || !uploadFormData.date) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('reportFile', selectedFile);
+      formData.append('patientId', user?._id || '');
+      formData.append('reportTitle', uploadFormData.recordName);
+      formData.append('reportType', uploadFormData.category);
+      formData.append('testDate', uploadFormData.date);
+      formData.append('notes', '');
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/reports/upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data.success) {
+        toast.success('Report uploaded! AI is extracting the values...');
+        resetUploadForm();
+        fetchReports();
+      } else {
+        toast.error(data.message || data.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Network error. Please try again.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   if (loading) {
@@ -874,62 +912,82 @@ export default function MedicalRecords() {
 
         {/* Records Grid */}
         <div className="grid grid-cols-1 gap-6">
-          {filteredRecords.map((record) => (
-            <div key={record.id} className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    {getFileIcon(record.type)}
-                  </div>
-                  
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900">{record.name}</h3>
-                    <p className="text-blue-600 font-medium">{record.category}</p>
-                    
-                    <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4" />
-                        <span>{new Date(record.date).toLocaleDateString()}</span>
+          {filteredRecords.map((record) => {
+            const status = reportStatus(record);
+            return (
+              <div key={record._id} className="bg-white rounded-lg shadow-sm border p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                  <div className="flex items-start space-x-4 min-w-0">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 text-blue-600">
+                      {getFileIcon(record.fileType)}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-semibold text-gray-900 break-words">{record.reportTitle}</h3>
+                      <p className="text-blue-600 font-medium">{record.reportType}</p>
+
+                      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 text-sm text-gray-600">
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>Test date: {new Date(record.testDate).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <User className="h-4 w-4" />
+                          <span>
+                            Uploaded by {record.uploadedBy?.role === 'patient' ? 'you' : record.uploadedBy?.name || 'hospital staff'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <User className="h-4 w-4" />
-                        <span>{record.doctor}</span>
-                      </div>
-                      <div>
-                        <span>{record.hospital}</span>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.className}`}>
+                          {status.label}
+                        </span>
+                        {record.reviewedBy?.name && (
+                          <span className="text-sm text-gray-500">Reviewed by Dr. {record.reviewedBy.name}</span>
+                        )}
                       </div>
                     </div>
-                    
-                    <div className="mt-3 flex items-center space-x-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>
-                        {record.status}
-                      </span>
-                      <span className="text-sm text-gray-500">{record.size}</span>
-                    </div>
                   </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                    <Eye className="h-5 w-5" />
-                  </button>
-                  <button className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg">
-                    <Download className="h-5 w-5" />
-                  </button>
-                  <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                    <Trash2 className="h-5 w-5" />
-                  </button>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <a
+                      href={record.cloudinaryUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg"
+                    >
+                      <Download className="h-4 w-4" />
+                      Open file
+                    </a>
+                    {record.aiProcessed && (
+                      <Link
+                        href="/patient/lab-results"
+                        className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg"
+                      >
+                        View values
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {filteredRecords.length === 0 && (
+        {reportsLoading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          </div>
+        ) : filteredRecords.length === 0 && (
           <div className="text-center py-12">
             <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No records found</h3>
-            <p className="text-gray-500">Try adjusting your search terms or upload new records</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {reports.length === 0 ? 'No medical documents yet' : 'No records match your search'}
+            </h3>
+            <p className="text-gray-500">
+              {reports.length === 0 ? 'Upload a report and it will appear here.' : 'Try adjusting your search terms or filter.'}
+            </p>
           </div>
         )}
 
@@ -1031,71 +1089,18 @@ export default function MedicalRecords() {
               
               <div className="flex space-x-3 mt-6">
                 <button
-                  onClick={() => {
-                    setShowUploadModal(false);
-                    setSelectedFile(null);
-                    setUploadFormData({ recordName: '', category: 'Lab Reports', date: '' });
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  onClick={resetUploadForm}
+                  disabled={uploading}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel
                 </button>
-                <button 
-                  onClick={async () => {
-                    if (!selectedFile) {
-                      toast.error('Please select a file');
-                      return;
-                    }
-                    if (!uploadFormData.recordName || !uploadFormData.date) {
-                      toast.error('Please fill in all required fields');
-                      return;
-                    }
-                    
-                    try {
-                      const formData = new FormData();
-                      formData.append('reportFile', selectedFile);
-                      formData.append('patientId', user?._id || '');
-                      formData.append('reportTitle', uploadFormData.recordName);
-                      formData.append('reportType', uploadFormData.category);
-                      formData.append('testDate', uploadFormData.date);
-                      formData.append('notes', '');
-
-                      const token = localStorage.getItem('token');
-                      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-                      
-                      const response = await fetch(`${API_URL}/api/reports/upload`, {
-                        method: 'POST',
-                        headers: {
-                          'Authorization': `Bearer ${token}`
-                        },
-                        body: formData
-                      });
-
-                      const data = await response.json();
-
-                      if (data.success) {
-                        toast.success('Report uploaded successfully! AI is extracting data...');
-                        setShowUploadModal(false);
-                        setSelectedFile(null);
-                        setUploadFormData({
-                          recordName: '',
-                          category: 'Lab Reports',
-                          date: ''
-                        });
-                        // Refresh the page data if needed
-                        window.location.reload();
-                      } else {
-                        toast.error(data.message || 'Upload failed');
-                      }
-                    } catch (error) {
-                      console.error('Upload error:', error);
-                      toast.error('Network error. Please try again.');
-                    }
-                  }}
-                  disabled={!selectedFile || !uploadFormData.recordName || !uploadFormData.date}
+                <button
+                  onClick={handleUploadRecord}
+                  disabled={uploading || !selectedFile || !uploadFormData.recordName || !uploadFormData.date}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Upload
+                  {uploading ? 'Uploading…' : 'Upload'}
                 </button>
               </div>
             </div>

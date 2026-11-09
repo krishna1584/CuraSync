@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { 
   Heart, 
@@ -18,6 +18,10 @@ import {
   X,
   Pill
 } from 'lucide-react';
+import RoleGuard from '@/components/RoleGuard';
+import { logout } from '@/lib/auth';
+
+const PATIENT_ONLY = ['patient'];
 
 const navigation = [
   { name: 'Dashboard', href: '/patient/dashboard', icon: LayoutDashboard },
@@ -37,7 +41,6 @@ export default function PatientLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
   const [user, setUser] = useState<{name: string, patientId?: string} | null>(null);
 
   useEffect(() => {
@@ -48,12 +51,11 @@ export default function PatientLayout({
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    router.push('/auth/login');
+    logout();
   };
 
   return (
+    <RoleGuard allowedRoles={PATIENT_ONLY} loginPortal="patient">
     <div className="h-screen flex overflow-hidden bg-gray-100">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
@@ -180,5 +182,6 @@ export default function PatientLayout({
         </main>
       </div>
     </div>
+    </RoleGuard>
   );
 }

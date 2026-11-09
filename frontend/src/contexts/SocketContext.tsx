@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { toast } from 'react-hot-toast';
 import { SOCKET_URL } from '../lib/config';
 
 interface SocketContextType {
@@ -44,11 +45,53 @@ interface SocketEventData {
   timestamp: string;
 }
 
+interface ReportProcessedData {
+  reportId: string;
+  reportTitle?: string;
+  reportType?: string;
+  message?: string;
+  timestamp: string;
+}
+
+type AlertPreference = 'inAppAlerts' | 'reportAlerts';
+
+// Reads the signed-in user's notification choices (cached at sign-in and when saved).
+// Missing values default to "on".
+const alertsAllowed = (key: AlertPreference) => {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    const prefs = raw ? JSON.parse(raw)?.notificationPreferences : null;
+    return !prefs || prefs[key] !== false;
+  } catch {
+    return true;
+  }
+};
+
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 let globalSocket: Socket | null = null;
 let registeredUserId: string | null = null;
 let currentUserRole: string | null = null;
+let lastRegisteredUser: UserData | null = null;
+
+// The server identifies the user from the JWT, never from client-supplied IDs.
+const emitRegistration = () => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  if (!globalSocket || !token) return false;
+  globalSocket.emit('register_user', { token });
+  return true;
+};
+
+// Disconnect and forget the current user (call on logout).
+export const resetSocketSession = () => {
+  registeredUserId = null;
+  currentUserRole = null;
+  lastRegisteredUser = null;
+  if (globalSocket) {
+    globalSocket.disconnect();
+    globalSocket.connect();
+  }
+};
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -71,18 +114,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         console.log('✅ Connected to server:', globalSocket?.id);
         setIsConnected(true);
         registeredUserId = null; // Reset on new connection
-        currentUserRole = null;
-        setUserRole(null);
+        // Re-authenticate automatically after a reconnect
+        if (lastRegisteredUser && emitRegistration()) {
+          registeredUserId = lastRegisteredUser.userId;
+        } else {
+          currentUserRole = null;
+          setUserRole(null);
+        }
       });
 
       globalSocket.on('registration_confirmed', (data) => {
         console.log('✅ Registration confirmed:', data);
       });
 
-      globalSocket.on('test_connection', (data) => {
-        console.log('🧪 TEST CONNECTION RECEIVED:', data);
-        console.log('🧪 This socket can receive events!');
-      });
 
       globalSocket.on('disconnect', () => {
         console.log('❌ Disconnected from server');
@@ -97,74 +141,41 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         setIsConnected(false);
       });
 
-      // Listen for appointment notifications
-      globalSocket.on('appointment_notification', (data: SocketEventData) => {
-        console.log('\n📨 ========================================');
-        console.log('📨 APPOINTMENT NOTIFICATION RECEIVED!');
-        console.log('📨 Type:', data.type);
-        console.log('📨 Message:', data.message);
-        console.log('📨 Current user role:', currentUserRole);
-        console.log('📨 Timestamp:', data.timestamp);
-        console.log('📨 ========================================\n');
-        
-        // Show notification - backend already filters by sending to correct user
-        const notificationId = Date.now();
-        
-        setNotifications((prev) => {
-          const newNotifications = [{
-            id: notificationId,
-            type: data.type,
-            message: data.message,
-            appointment: data.appointment,
-            timestamp: new Date(data.timestamp)
-          }, ...prev];
-          
-          console.log('✅ Notification added! Total notifications:', newNotifications.length);
-          return newNotifications;
-        });
-
-        // Notification will stay until manually dismissed
-      });
-
-      // Listen for appointment updates (for admin dashboard)
-      globalSocket.on('appointment_update', (data: SocketEventData) => {
-        console.log('📨 Appointment update received:', data);
-        const notificationId = Date.now();
-        
+      const pushNotification = (type: string, message: string, timestamp: string, appointment?: Appointment) => {
         setNotifications((prev) => [{
-          id: notificationId,
-          type: data.type,
-          message: `New appointment created: ${data.appointment?.reason}`,
-          appointment: data.appointment,
-          timestamp: new Date(data.timestamp)
+          id: Date.now() + Math.random(),
+          type,
+          message,
+          appointment,
+          timestamp: new Date(timestamp || Date.now())
         }, ...prev]);
+      };
 
-        // Notification will stay until manually dismissed
+      // Appointment booked / confirmed / status changed
+      globalSocket.on('appointment_notification', (data: SocketEventData) => {
+        if (!alertsAllowed('inAppAlerts')) return;
+        pushNotification(data.type, data.message, data.timestamp, data.appointment);
       });
 
-      // Listen for prescription notifications
+      // New appointments (hospital staff dashboards)
+      globalSocket.on('appointment_update', (data: SocketEventData) => {
+        if (!alertsAllowed('inAppAlerts')) return;
+        pushNotification(data.type, `New appointment created: ${data.appointment?.reason || ''}`.trim(), data.timestamp, data.appointment);
+      });
+
+      // New prescription for the patient
       globalSocket.on('prescription_notification', (data: SocketEventData) => {
-        console.log('\n💊 ========================================');
-        console.log('💊 PRESCRIPTION NOTIFICATION RECEIVED!');
-        console.log('💊 Type:', data.type);
-        console.log('💊 Message:', data.message);
-        console.log('💊 Current user role:', currentUserRole);
-        console.log('💊 Timestamp:', data.timestamp);
-        console.log('💊 ========================================\n');
-        
-        const notificationId = Date.now();
-        
-        setNotifications((prev) => {
-          const newNotifications = [{
-            id: notificationId,
-            type: data.type,
-            message: data.message,
-            timestamp: new Date(data.timestamp)
-          }, ...prev];
-          
-          console.log('✅ Prescription notification added! Total notifications:', newNotifications.length);
-          return newNotifications;
-        });
+        if (!alertsAllowed('inAppAlerts')) return;
+        pushNotification(data.type, data.message, data.timestamp);
+        toast(data.message, { icon: '💊' });
+      });
+
+      // AI finished reading an uploaded report
+      globalSocket.on('report_processed', (data: ReportProcessedData) => {
+        if (!alertsAllowed('reportAlerts')) return;
+        const message = data.message || `Your ${data.reportType || ''} report is ready`.replace('  ', ' ');
+        pushNotification('report_processed', message, data.timestamp);
+        toast.success(`${message}. Open Lab Results to see the values.`);
       });
 
       console.log('✅ All socket event listeners registered');
@@ -193,8 +204,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    lastRegisteredUser = userData;
+
     if (globalSocket && globalSocket.connected) {
-      globalSocket.emit('register_user', userData);
+      if (!emitRegistration()) return;
       registeredUserId = userData.userId;
       currentUserRole = userData.role;
       setUserRole(userData.role);
@@ -204,7 +217,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       // Wait for connection and retry
       setTimeout(() => {
         if (globalSocket && globalSocket.connected && registeredUserId !== userData.userId) {
-          globalSocket.emit('register_user', userData);
+          if (!emitRegistration()) return;
           registeredUserId = userData.userId;
           currentUserRole = userData.role;
           setUserRole(userData.role);

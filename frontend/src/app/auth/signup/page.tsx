@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Heart, Eye, EyeOff, User, Mail, Phone } from 'lucide-react';
@@ -13,21 +13,12 @@ function SignupForm() {
   const searchParams = useSearchParams();
   const role = searchParams.get('role') || 'patient';
 
-  useEffect(() => {
-    if (role === 'admin') {
-      router.replace('/auth/login?role=admin');
-    }
-  }, [role, router]);
-
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    phone: '',
-    specialization: '', // For doctors
-    licenseNumber: '', // For doctors
-    department: '' // For staff
+    phone: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -95,10 +86,14 @@ function SignupForm() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Registration successful! You can now login with your credentials.');
-        // COMMENTED OUT EMAIL VERIFICATION - Redirect to login instead
-        router.push('/auth/login');
-        // router.push(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`);
+        // If a verification code was emailed, confirm it now; otherwise go straight to sign in.
+        if (data.data?.emailSent) {
+          toast.success('Account created! Check your email for a verification code.');
+          router.push(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`);
+        } else {
+          toast.success('Account created! You can now sign in.');
+          router.push('/auth/login?role=patient');
+        }
       } else {
         toast.error(data.message || 'Registration failed');
       }
@@ -108,6 +103,44 @@ function SignupForm() {
       setIsLoading(false);
     }
   };
+
+  // Only patients can create their own account. Doctor and staff accounts are
+  // created by a hospital admin, so show guidance instead of a form that would fail.
+  if (role !== 'patient') {
+    return (
+      <div className={`min-h-screen ${roleInfo.gradientBg} relative overflow-hidden`}>
+        <Navigation showAuthButtons={false} />
+        <div className="py-32 px-4 sm:px-6 lg:px-8 relative">
+          <div className="max-w-md mx-auto bg-white/80 backdrop-blur-lg py-10 px-8 shadow-2xl rounded-3xl border border-white/20 text-center">
+            <div className="flex justify-center mb-6">
+              <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl">
+                <Heart className="h-10 w-10 text-white" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Accounts for doctors and staff</h2>
+            <p className="text-gray-600 mb-8">
+              Doctor and hospital staff accounts are created by your hospital administrator.
+              Please contact them to get your login details.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Link
+                href={`/auth/login?role=${role === 'doctor' ? 'doctor' : 'admin'}`}
+                className="w-full py-2 px-4 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              >
+                Go to sign in
+              </Link>
+              <Link
+                href="/auth/signup?role=patient"
+                className="w-full py-2 px-4 rounded-md text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100"
+              >
+                I&apos;m a patient — create an account
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${roleInfo.gradientBg} relative overflow-hidden`}>
@@ -194,59 +227,6 @@ function SignupForm() {
               </div>
             </div>
 
-            {/* Role-specific fields */}
-            {role === 'doctor' && (
-              <>
-                <div>
-                  <label htmlFor="specialization" className="block text-sm font-medium text-gray-700">
-                    Specialization *
-                  </label>
-                  <input
-                    id="specialization"
-                    name="specialization"
-                    type="text"
-                    required
-                    value={formData.specialization}
-                    onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
-                    className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., Cardiology, Pediatrics"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="licenseNumber" className="block text-sm font-medium text-gray-700">
-                    Medical License Number *
-                  </label>
-                  <input
-                    id="licenseNumber"
-                    name="licenseNumber"
-                    type="text"
-                    required
-                    value={formData.licenseNumber}
-                    onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
-                    className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter your license number"
-                  />
-                </div>
-              </>
-            )}
-
-            {(role === 'admin' || role === 'nurse' || role === 'receptionist') && (
-              <div>
-                <label htmlFor="department" className="block text-sm font-medium text-gray-700">
-                  Department
-                </label>
-                <input
-                  id="department"
-                  name="department"
-                  type="text"
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your department"
-                />
-              </div>
-            )}
 
             {/* Password fields */}
             <div>
@@ -346,21 +326,13 @@ function SignupForm() {
               </Link>
               <Link
                 href="/auth/signup?role=doctor"
-                className={`text-xs py-2 px-3 rounded ${
-                  role === 'doctor' 
-                    ? 'bg-green-100 text-green-700 font-medium' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                className="text-xs py-2 px-3 rounded text-gray-600 hover:bg-gray-100"
               >
                 Doctor
               </Link>
               <Link
                 href="/auth/signup?role=admin"
-                className={`text-xs py-2 px-3 rounded ${
-                  role === 'admin' 
-                    ? 'bg-purple-100 text-purple-700 font-medium' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                className="text-xs py-2 px-3 rounded text-gray-600 hover:bg-gray-100"
               >
                 Hospital
               </Link>

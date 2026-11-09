@@ -6,15 +6,17 @@ const labTestSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  // Ordering doctor. Optional: patients can book routine tests themselves.
   doctorId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: 'User'
   },
   testName: {
     type: String,
     required: true
   },
+  testCode: String,
+  testCategory: String,
   testType: {
     type: String,
     enum: ['blood', 'urine', 'imaging', 'other'],
@@ -30,6 +32,7 @@ const labTestSchema = new mongoose.Schema({
     default: Date.now
   },
   scheduledDate: Date,
+  timeSlot: String,
   completedDate: Date,
   results: {
     parameters: [{

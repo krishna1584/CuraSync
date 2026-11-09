@@ -1,6 +1,8 @@
 const app = require('./app');
 const http = require('http');
 const socketIo = require('socket.io');
+const User = require('./models/User');
+const { verifyToken } = require('./utils/auth');
 
 const PORT = process.env.PORT || 5000;
 
@@ -8,12 +10,7 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
 // Initialize Socket.IO
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "https://curasync1.vercel.app",
-  process.env.FRONTEND_URL
-].filter(Boolean);
+const { allowedOrigins } = require('./config/origins');
 
 const io = socketIo(server, {
   cors: {
@@ -28,83 +25,44 @@ const connectedUsers = {};
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log('🔗 New WebSocket connection:', socket.id);
+  // A socket only receives notifications after proving who it is with a valid JWT.
+  // The user ID, role and name always come from the database, never from the client.
+  socket.on('register_user', async (payload = {}) => {
+    try {
+      const token = typeof payload.token === 'string' ? payload.token : null;
+      if (!token) throw new Error('Missing token');
 
-  // Register user - listen for 'register_user' event
-  socket.on('register_user', (userData) => {
-    const { userId, role, name } = userData;
-    
-    // Remove old registration if this socket was previously registered to another user
-    for (const oldUserId in connectedUsers) {
-      if (connectedUsers[oldUserId].socketId === socket.id && oldUserId !== userId) {
-        console.log(`🔄 Socket ${socket.id} was registered to ${connectedUsers[oldUserId].name}, now switching to ${name}`);
-        delete connectedUsers[oldUserId];
+      const decoded = verifyToken(token);
+      const user = await User.findById(decoded.id).select('name role');
+      if (!user) throw new Error('User not found');
+
+      const userId = user._id.toString();
+
+      // Drop any previous registration held by this socket (e.g. after a user switch).
+      for (const existingId in connectedUsers) {
+        if (connectedUsers[existingId].socketId === socket.id && existingId !== userId) {
+          delete connectedUsers[existingId];
+        }
       }
+
+      connectedUsers[userId] = { socketId: socket.id, role: user.role, name: user.name };
+      socket.data.userId = userId;
+
+      socket.emit('registration_confirmed', {
+        message: `Welcome ${user.name}! You are now connected.`,
+        userId,
+        role: user.role
+      });
+    } catch (error) {
+      socket.emit('registration_failed', { message: 'Authentication failed' });
     }
-    
-    connectedUsers[userId] = {
-      socketId: socket.id,
-      role,
-      name
-    };
-    console.log(`✅ User registered: ${name} (${role}) - Socket: ${socket.id}`);
-    console.log(`📊 Total connected users: ${Object.keys(connectedUsers).length}`);
-    console.log('👥 Active users:', Object.keys(connectedUsers).map(id => `${connectedUsers[id].name} (${connectedUsers[id].role})`));
-    
-    // Send confirmation back to user
-    socket.emit('registration_confirmed', {
-      message: `Welcome ${name}! You are now connected.`,
-      userId,
-      role
-    });
-    
-    // Send a test notification to verify connection
-    console.log(`🧪 Sending test notification to ${name} on socket ${socket.id}`);
-    socket.emit('test_connection', {
-      message: `Connection test for ${name}`,
-      timestamp: new Date().toISOString()
-    });
   });
 
-  // Also listen for old 'register' event for backward compatibility
-  socket.on('register', (userData) => {
-    const { userId, role, name } = userData;
-    connectedUsers[userId] = {
-      socketId: socket.id,
-      role,
-      name
-    };
-    console.log(`✅ User registered: ${name} (${role}) - Socket: ${socket.id}`);
-    console.log(`📊 Total connected users: ${Object.keys(connectedUsers).length}`);
-    
-    socket.emit('registration_confirmed', {
-      message: `Welcome ${name}! You are now connected.`,
-      userId,
-      role
-    });
-  });
-
-  // Test notification handler for debugging
-  socket.on('test_notification', (data) => {
-    console.log('🧪 Test notification received:', data);
-    socket.emit('appointment_notification', {
-      type: 'test',
-      message: 'Test notification from server',
-      timestamp: new Date().toISOString()
-    });
-  });
-
-  // Handle disconnection
   socket.on('disconnect', () => {
-    // Remove user from connected users
-    for (const userId in connectedUsers) {
-      if (connectedUsers[userId].socketId === socket.id) {
-        console.log(`❌ User disconnected: ${connectedUsers[userId].name}`);
-        delete connectedUsers[userId];
-        break;
-      }
+    const userId = socket.data.userId;
+    if (userId && connectedUsers[userId] && connectedUsers[userId].socketId === socket.id) {
+      delete connectedUsers[userId];
     }
-    console.log(`📊 Remaining connected users: ${Object.keys(connectedUsers).length}`);
   });
 });
 

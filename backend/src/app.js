@@ -20,6 +20,11 @@ const prescriptionRoutes = require('./routes/prescriptions');
 const { errorHandler } = require('./middleware/errorHandler');
 const { notFound } = require('./middleware/notFound');
 const { connectDB } = require('./config/database');
+const { isAllowedOrigin } = require('./config/origins');
+const { getJwtSecret } = require('./utils/auth');
+
+// Refuse to start without a real JWT secret.
+getJwtSecret();
 
 const app = express();
 
@@ -44,34 +49,15 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS configuration
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'https://curasync1.vercel.app',
-  process.env.FRONTEND_URL
-].filter(Boolean);
-
-console.log('🔒 CORS Allowed Origins:', allowedOrigins);
-
+// CORS configuration (exact origins only; see config/origins.js)
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
+    if (!origin || isAllowedOrigin(origin)) {
       return callback(null, true);
     }
-    
-    // Check if origin matches allowed origins or Vercel preview URLs
-    const isAllowed = allowedOrigins.some(allowed => origin === allowed) || 
-                      origin.endsWith('.vercel.app');
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.log('❌ Origin blocked:', origin);
-      console.log('📋 Allowed origins:', allowedOrigins);
-      callback(new Error('Not allowed by CORS'));
-    }
+    console.warn('CORS origin blocked:', origin);
+    callback(null, false);
   },
   credentials: true,
   optionsSuccessStatus: 200,
@@ -120,9 +106,6 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/lab-tests', labTestRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
-
-// Serve static files for uploads
-app.use('/uploads', express.static('uploads'));
 
 // Error handling middleware
 app.use(notFound);

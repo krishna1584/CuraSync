@@ -11,31 +11,17 @@ import {
   Eye,
   EyeOff,
   Shield,
-  Globe,
-  Moon,
-  Sun,
-  Save,
-  ArrowLeft,
-  Smartphone,
-  Mail,
-  Calendar,
-  AlertCircle
+  ArrowLeft
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import NotificationPreferencesForm, { NotificationPreferences } from '@/components/NotificationPreferencesForm';
 
 interface UserData {
   _id: string;
   name: string;
   email: string;
   role: string;
-}
-
-interface NotificationSettings {
-  emailNotifications: boolean;
-  smsNotifications: boolean;
-  appointmentReminders: boolean;
-  labResultsNotifications: boolean;
-  systemUpdates: boolean;
+  notificationPreferences?: Partial<NotificationPreferences>;
 }
 
 interface PasswordData {
@@ -51,15 +37,6 @@ export default function PatientSettings() {
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
-  // Notification settings
-  const [notifications, setNotifications] = useState<NotificationSettings>({
-    emailNotifications: true,
-    smsNotifications: true,
-    appointmentReminders: true,
-    labResultsNotifications: true,
-    systemUpdates: false
-  });
-
   // Password change
   const [passwordData, setPasswordData] = useState<PasswordData>({
     currentPassword: '',
@@ -69,11 +46,6 @@ export default function PatientSettings() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // Preferences
-  const [darkMode, setDarkMode] = useState(false);
-  const [language, setLanguage] = useState('en');
-  const [timezone, setTimezone] = useState('UTC');
 
   const checkAuth = useCallback(async () => {
     try {
@@ -115,28 +87,7 @@ export default function PatientSettings() {
 
   useEffect(() => {
     checkAuth();
-    // Load saved preferences from localStorage
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-    const savedLanguage = localStorage.getItem('language') || 'en';
-    const savedTimezone = localStorage.getItem('timezone') || 'UTC';
-    
-    setDarkMode(savedDarkMode);
-    setLanguage(savedLanguage);
-    setTimezone(savedTimezone);
   }, [checkAuth]);
-
-  const handleSaveNotifications = async () => {
-    setSaving(true);
-    try {
-      // Simulate API call - in real app, save to backend
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Notification settings saved!');
-    } catch (error) {
-      toast.error('Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,21 +129,6 @@ export default function PatientSettings() {
       });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to change password');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSavePreferences = () => {
-    setSaving(true);
-    try {
-      localStorage.setItem('darkMode', darkMode.toString());
-      localStorage.setItem('language', language);
-      localStorage.setItem('timezone', timezone);
-      
-      toast.success('Preferences saved!');
-    } catch (error) {
-      toast.error('Failed to save preferences');
     } finally {
       setSaving(false);
     }
@@ -262,114 +198,11 @@ export default function PatientSettings() {
           {activeTab === 'notifications' && (
             <div className="p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Notification Preferences</h2>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">Email Notifications</p>
-                      <p className="text-sm text-gray-600">Receive updates via email</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.emailNotifications}
-                      onChange={(e) => setNotifications({ ...notifications, emailNotifications: e.target.checked })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Smartphone className="h-5 w-5 text-green-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">SMS Notifications</p>
-                      <p className="text-sm text-gray-600">Receive updates via text message</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.smsNotifications}
-                      onChange={(e) => setNotifications({ ...notifications, smsNotifications: e.target.checked })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-purple-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">Appointment Reminders</p>
-                      <p className="text-sm text-gray-600">Get reminded about upcoming appointments</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.appointmentReminders}
-                      onChange={(e) => setNotifications({ ...notifications, appointmentReminders: e.target.checked })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="h-5 w-5 text-red-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">Lab Results</p>
-                      <p className="text-sm text-gray-600">Notify when lab results are ready</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.labResultsNotifications}
-                      onChange={(e) => setNotifications({ ...notifications, labResultsNotifications: e.target.checked })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Bell className="h-5 w-5 text-orange-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">System Updates</p>
-                      <p className="text-sm text-gray-600">News and updates about CuraSync</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.systemUpdates}
-                      onChange={(e) => setNotifications({ ...notifications, systemUpdates: e.target.checked })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={handleSaveNotifications}
-                  disabled={saving}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  <Save className="h-4 w-4" />
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
+              <NotificationPreferencesForm
+                userId={user._id}
+                role="patient"
+                initial={user.notificationPreferences}
+              />
             </div>
           )}
 

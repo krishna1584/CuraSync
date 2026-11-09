@@ -22,6 +22,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import NotificationPreferencesForm, { NotificationPreferences } from '@/components/NotificationPreferencesForm';
 
 interface UserData {
   _id: string;
@@ -38,14 +39,9 @@ interface UserData {
     startTime: string;
     endTime: string;
   }[];
+  notificationPreferences?: Partial<NotificationPreferences>;
 }
 
-interface NotificationSettings {
-  emailNotifications: boolean;
-  appointmentReminders: boolean;
-  patientUpdates: boolean;
-  systemAlerts: boolean;
-}
 
 interface PasswordData {
   currentPassword: string;
@@ -71,14 +67,6 @@ export default function DoctorSettings() {
     consultationFee: 0
   });
 
-  // Notification settings
-  const [notifications, setNotifications] = useState<NotificationSettings>({
-    emailNotifications: true,
-    appointmentReminders: true,
-    patientUpdates: true,
-    systemAlerts: false
-  });
-
   // Password change
   const [passwordData, setPasswordData] = useState<PasswordData>({
     currentPassword: '',
@@ -97,7 +85,6 @@ export default function DoctorSettings() {
 
   useEffect(() => {
     checkAuth();
-    loadSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -148,13 +135,6 @@ export default function DoctorSettings() {
     }
   };
 
-  const loadSettings = () => {
-    const savedNotifications = localStorage.getItem('notificationSettings');
-    if (savedNotifications) {
-      setNotifications(JSON.parse(savedNotifications));
-    }
-  };
-
   const handleSaveProfile = async () => {
     if (!user) return;
 
@@ -187,11 +167,6 @@ export default function DoctorSettings() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleSaveNotifications = () => {
-    localStorage.setItem('notificationSettings', JSON.stringify(notifications));
-    toast.success('Notification settings saved!');
   };
 
   const handleChangePassword = async () => {
@@ -563,41 +538,13 @@ export default function DoctorSettings() {
           {activeTab === 'notifications' && (
             <div className="p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-6">Notification Preferences</h2>
-              
-              <div className="space-y-4">
-                {Object.entries(notifications).map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                      </p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {key === 'emailNotifications' && 'Receive notifications via email'}
-                        {key === 'appointmentReminders' && 'Get reminders for upcoming appointments'}
-                        {key === 'patientUpdates' && 'Notifications about patient updates'}
-                        {key === 'systemAlerts' && 'System maintenance and updates'}
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={value}
-                        onChange={(e) => setNotifications({ ...notifications, [key]: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={handleSaveNotifications}
-                className="mt-6 w-full flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Save className="h-5 w-5 mr-2" />
-                Save Preferences
-              </button>
+              {user && (
+                <NotificationPreferencesForm
+                  userId={user._id}
+                  role="doctor"
+                  initial={user.notificationPreferences}
+                />
+              )}
             </div>
           )}
 

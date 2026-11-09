@@ -67,7 +67,7 @@ function VerifyEmailForm() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('OTP sent successfully!');
+        toast.success(data.message || 'A new code has been sent.');
       } else {
         toast.error(data.message || 'Failed to resend OTP');
       }

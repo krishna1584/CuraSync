@@ -16,6 +16,9 @@ import {
   BarChart3,
   Stethoscope
 } from 'lucide-react';
+import RoleGuard from '@/components/RoleGuard';
+
+const STAFF_ONLY = ['admin', 'nurse', 'receptionist'];
 
 const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -35,6 +38,7 @@ export default function AdminLayout({
   const pathname = usePathname();
 
   return (
+    <RoleGuard allowedRoles={STAFF_ONLY} loginPortal="admin">
     <div className="h-screen flex overflow-hidden bg-gray-100">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
@@ -158,5 +162,6 @@ export default function AdminLayout({
         </main>
       </div>
     </div>
+    </RoleGuard>
   );
 }

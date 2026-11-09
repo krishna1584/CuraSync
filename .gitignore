@@ -63,3 +63,4 @@ uploads/
 # Backup files
 *.backup
 *.bak
+scripts/

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useSocket } from '../../../contexts/SocketContext';
 import { NotificationBell } from '../../../components/NotificationBell';
+import { logout } from '@/lib/auth';
 
 interface UserData {
   _id: string;
@@ -165,8 +166,7 @@ export default function DoctorAppointments() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    router.push('/auth/login');
+    logout();
   };
 
   const formatDate = (dateString: string) => {

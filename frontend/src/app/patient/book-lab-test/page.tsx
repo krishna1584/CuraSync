@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Navigation from '@/components/Navigation';
+import { API_URL } from '@/lib/config';
 
 interface LabTest {
   id: string;
@@ -111,13 +112,13 @@ export default function BookLabTestPage() {
     }
 
     try {
-      const response = await fetch('/api/auth/verify', {
+      const response = await fetch(`${API_URL}/auth/verify`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
       if (response.ok) {
         const data = await response.json();
-        setUser(data.user);
+        setUser(data.data?.user || data.user);
       } else {
         localStorage.removeItem('token');
         router.push('/auth/login');
@@ -170,7 +171,7 @@ export default function BookLabTestPage() {
     setBooking(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/lab-tests/book', {
+      const response = await fetch(`${API_URL}/lab-tests/book`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -182,6 +183,7 @@ export default function BookLabTestPage() {
             testName: test.name,
             testCategory: test.category,
             testCode: test.code,
+            sampleType: test.sampleType,
             cost: test.price
           })),
           scheduledDate: selectedDate,

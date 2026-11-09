@@ -1,5 +1,6 @@
 const express = require('express');
 const { 
+  getAvailableSlots,
   getAllAppointments,
   getAppointmentById,
   createAppointment,
@@ -19,6 +20,7 @@ router.use(auth);
 // Appointment routes
 router.get('/', getAllAppointments);                    // GET /api/appointments
 router.post('/', createAppointment);                    // POST /api/appointments
+router.get('/available-slots', getAvailableSlots);    // GET /api/appointments/available-slots?doctorId&date
 router.get('/my-appointments', getMyAppointments);      // GET /api/appointments/my-appointments
 router.get('/patient/:patientId', getAppointmentsByPatient); // GET /api/appointments/patient/:patientId
 router.get('/doctor/:doctorId', getAppointmentsByDoctor);    // GET /api/appointments/doctor/:doctorId

@@ -39,6 +39,10 @@ interface TimeSlot {
   available: boolean;
 }
 
+// "YYYY-MM-DD" for the given moment in the browser's own time zone.
+const toLocalDateString = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 export default function BookAppointmentPage() {
   const router = useRouter();
   const { socket, isConnected, notifications, registerUser, clearNotification } = useSocket();
@@ -53,20 +57,64 @@ export default function BookAppointmentPage() {
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
   
-  const timeSlots: TimeSlot[] = [
-    { time: '09:00', available: true },
-    { time: '09:30', available: true },
-    { time: '10:00', available: false },
-    { time: '10:30', available: true },
-    { time: '11:00', available: true },
-    { time: '11:30', available: true },
-    { time: '14:00', available: true },
-    { time: '14:30', available: false },
-    { time: '15:00', available: true },
-    { time: '15:30', available: true },
-    { time: '16:00', available: true },
-    { time: '16:30', available: true },
-  ];
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsMessage, setSlotsMessage] = useState('');
+
+  // Load the doctor's real free/booked slots whenever doctor or date changes.
+  useEffect(() => {
+    setSelectedTime('');
+    if (!selectedDoctor || !selectedDate) {
+      setTimeSlots([]);
+      setSlotsMessage('');
+      return;
+    }
+
+    let cancelled = false;
+    const loadSlots = async () => {
+      setSlotsLoading(true);
+      setSlotsMessage('');
+      try {
+        const token = localStorage.getItem('token');
+        const params = new URLSearchParams({ doctorId: selectedDoctor._id, date: selectedDate });
+        const response = await fetch(`${API_URL}/appointments/available-slots?${params}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await response.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!response.ok || !result.success) {
+          setTimeSlots([]);
+          setSlotsMessage(result.message || 'Could not load available times');
+          return;
+        }
+        const now = new Date();
+        const isToday = selectedDate === toLocalDateString(now);
+        const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const slots: TimeSlot[] = (result.data.slots as TimeSlot[]).map((slot) => ({
+          time: slot.time,
+          // Times that have already passed today cannot be booked.
+          available: slot.available && (!isToday || slot.time > currentTime)
+        }));
+        setTimeSlots(slots);
+        if (result.data.reason) setSlotsMessage(result.data.reason);
+        else if (slots.length > 0 && slots.every((slot) => !slot.available)) {
+          setSlotsMessage('All times are taken on this day. Please choose another date.');
+        }
+      } catch {
+        if (!cancelled) {
+          setTimeSlots([]);
+          setSlotsMessage('Could not load available times');
+        }
+      } finally {
+        if (!cancelled) setSlotsLoading(false);
+      }
+    };
+
+    loadSlots();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDoctor, selectedDate]);
 
   useEffect(() => {
     checkAuth();
@@ -145,7 +193,7 @@ export default function BookAppointmentPage() {
         return;
       }
 
-      const response = await fetch(`${API_URL}/users`, {
+      const response = await fetch(`${API_URL}/users/doctors`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -181,15 +229,6 @@ export default function BookAppointmentPage() {
         return;
       }
 
-      console.log('Booking appointment with data:', {
-        patientId: user._id,
-        doctorId: selectedDoctor._id,
-        appointmentDate: selectedDate,
-        timeSlot: selectedTime,
-        reason: reason.trim(),
-        type: appointmentType
-      });
-
       const response = await fetch(`${API_URL}/appointments`, {
         method: 'POST',
         headers: {
@@ -207,9 +246,7 @@ export default function BookAppointmentPage() {
         })
       });
 
-      console.log('Response status:', response.status);
       const data = await response.json();
-      console.log('Response data:', data);
 
       if (response.ok && data.success) {
         toast.success('Appointment booked successfully!');
@@ -219,6 +256,12 @@ export default function BookAppointmentPage() {
         }, 1500);
       } else {
         toast.error(data.message || 'Failed to book appointment');
+        if (response.status === 409) {
+          // Someone else took the slot: reload the times for this day.
+          const current = selectedDate;
+          setSelectedDate('');
+          setTimeout(() => setSelectedDate(current), 0);
+        }
       }
     } catch (error) {
       console.error('Booking error:', error);
@@ -228,11 +271,7 @@ export default function BookAppointmentPage() {
     }
   };
 
-  const getMinDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
-  };
+  const getMinDate = () => toLocalDateString(new Date());
 
   if (loading) {
     return (
@@ -364,24 +403,36 @@ export default function BookAppointmentPage() {
                   <Clock className="h-4 w-4 inline mr-2" />
                   Select Time
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {timeSlots.map((slot) => (
-                    <button
-                      key={slot.time}
-                      onClick={() => slot.available && setSelectedTime(slot.time)}
-                      disabled={!slot.available}
-                      className={`p-2 text-sm rounded-lg border transition-colors ${
-                        selectedTime === slot.time
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : slot.available
-                          ? 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
-                          : 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50'
-                      }`}
-                    >
-                      {slot.time}
-                    </button>
-                  ))}
-                </div>
+                {!selectedDoctor || !selectedDate ? (
+                  <p className="text-sm text-gray-500">Choose a doctor and date to see available times.</p>
+                ) : slotsLoading ? (
+                  <p className="text-sm text-gray-500">Loading available times…</p>
+                ) : (
+                  <>
+                    {slotsMessage && <p className="text-sm text-amber-700 mb-2">{slotsMessage}</p>}
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {timeSlots.map((slot) => (
+                        <button
+                          key={slot.time}
+                          type="button"
+                          onClick={() => slot.available && setSelectedTime(slot.time)}
+                          disabled={!slot.available}
+                          aria-pressed={selectedTime === slot.time}
+                          title={slot.available ? undefined : 'Not available'}
+                          className={`p-2 text-sm rounded-lg border transition-colors ${
+                            selectedTime === slot.time
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : slot.available
+                              ? 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
+                              : 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50 line-through'
+                          }`}
+                        >
+                          {slot.time}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Reason */}
@@ -404,7 +455,7 @@ export default function BookAppointmentPage() {
                   <h3 className="font-medium text-gray-900 mb-2">Appointment Summary</h3>
                   <div className="text-sm text-gray-700 space-y-1">
                     <p><strong>Doctor:</strong> {selectedDoctor.name}</p>
-                    <p><strong>Date:</strong> {new Date(selectedDate).toLocaleDateString()}</p>
+                    <p><strong>Date:</strong> {new Date(`${selectedDate}T00:00:00`).toLocaleDateString()}</p>
                     <p><strong>Time:</strong> {selectedTime}</p>
                     <p><strong>Type:</strong> {appointmentType}</p>
                     {selectedDoctor.consultationFee && (

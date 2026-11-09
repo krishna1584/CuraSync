@@ -118,7 +118,7 @@ export default function UploadReportPage() {
     try {
       const token = localStorage.getItem('token');
       const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${BASE_URL}/api/users`, {
+      const response = await fetch(`${BASE_URL}/api/users/patients`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },

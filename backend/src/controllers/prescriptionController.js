@@ -1,13 +1,43 @@
 const Prescription = require('../models/Prescription');
 const User = require('../models/User');
 const Appointment = require('../models/Appointment');
+const {
+  isHospitalStaff,
+  sameId,
+  doctorCanAccessPatient,
+  canAccessPatientData,
+  pick,
+  errorDetails
+} = require('../utils/access');
 
-// Create new prescription
+// Fields the prescribing doctor may change after creation.
+const UPDATABLE_FIELDS = [
+  'diagnosis', 'symptoms', 'medications', 'vitalSigns',
+  'labTests', 'followUpDate', 'notes', 'status'
+];
+
+const refId = (ref) => (ref && ref._id ? ref._id : ref);
+
+const canViewPrescription = (prescription, user) => (
+  isHospitalStaff(user.role) ||
+  sameId(refId(prescription.patientId), user._id) ||
+  sameId(refId(prescription.doctorId), user._id)
+);
+
+const serverError = (res, label, error) => {
+  console.error(`${label} error:`, error);
+  return res.status(500).json({ success: false, message: 'Internal server error', ...errorDetails(error) });
+};
+
+// POST /api/prescriptions — doctors only, for their own patients
 const createPrescription = async (req, res) => {
   try {
+    if (req.user.role !== 'doctor') {
+      return res.status(403).json({ success: false, message: 'Only doctors can create prescriptions' });
+    }
+
     const {
       patientId,
-      doctorId,
       appointmentId,
       diagnosis,
       symptoms,
@@ -18,35 +48,34 @@ const createPrescription = async (req, res) => {
       notes
     } = req.body;
 
-    // Validate required fields
-    if (!patientId || !doctorId || !diagnosis || !medications || medications.length === 0) {
+    // The prescribing doctor is always the signed-in doctor.
+    const doctorId = req.user._id;
+
+    if (!patientId || !diagnosis || !Array.isArray(medications) || medications.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Patient, doctor, diagnosis, and at least one medication are required'
+        message: 'Patient, diagnosis, and at least one medication are required'
       });
     }
 
-    // Check if patient exists
     const patient = await User.findById(patientId);
     if (!patient || patient.role !== 'patient') {
-      return res.status(404).json({
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    if (!(await doctorCanAccessPatient(doctorId, patient._id))) {
+      return res.status(403).json({
         success: false,
-        message: 'Patient not found'
+        message: 'You can only prescribe for patients who have an appointment with you'
       });
     }
 
-    // Check if doctor exists
-    const doctor = await User.findById(doctorId);
-    if (!doctor || doctor.role !== 'doctor') {
-      return res.status(404).json({
-        success: false,
-        message: 'Doctor not found'
-      });
+    if (appointmentId && !(await Appointment.exists({ _id: appointmentId, doctorId, patientId: patient._id }))) {
+      return res.status(400).json({ success: false, message: 'Appointment does not match this patient' });
     }
 
-    // Create prescription
     const prescription = await Prescription.create({
-      patientId,
+      patientId: patient._id,
       doctorId,
       appointmentId,
       diagnosis,
@@ -59,28 +88,22 @@ const createPrescription = async (req, res) => {
       status: 'active'
     });
 
-    // Populate the created prescription
     const populatedPrescription = await Prescription.findById(prescription._id)
       .populate('patientId', 'name email phone patientId')
       .populate('doctorId', 'name email specialization doctorId');
 
-    // Send real-time notification to patient
+    // Real-time notification to the patient
     const io = req.app.get('io');
-    const connectedUsers = req.app.get('connectedUsers');
-    
-    const patientKey = Object.keys(connectedUsers).find(
-      key => key === patientId.toString() || key === patientId
-    );
-    
-    if (patientKey && connectedUsers[patientKey]) {
-      const notificationData = {
+    const connectedUsers = req.app.get('connectedUsers') || {};
+    const connection = connectedUsers[patient._id.toString()];
+
+    if (io && connection) {
+      io.to(connection.socketId).emit('prescription_notification', {
         type: 'new_prescription',
-        message: `Dr. ${doctor.name} has prescribed new medication for you`,
+        message: `Dr. ${req.user.name} has prescribed new medication for you`,
         prescription: populatedPrescription,
         timestamp: new Date().toISOString()
-      };
-      
-      io.to(connectedUsers[patientKey].socketId).emit('prescription_notification', notificationData);
+      });
     }
 
     res.status(201).json({
@@ -89,187 +112,147 @@ const createPrescription = async (req, res) => {
       data: populatedPrescription
     });
   } catch (error) {
-    console.error('Create prescription error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
+    return serverError(res, 'Create prescription', error);
   }
 };
 
-// Get all prescriptions for a patient
+// GET /api/prescriptions/patient/:patientId
 const getPatientPrescriptions = async (req, res) => {
   try {
     const { patientId } = req.params;
+
+    if (!(await canAccessPatientData(req.user, patientId))) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
     const prescriptions = await Prescription.find({ patientId })
       .populate('doctorId', 'name email specialization doctorId')
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
-      success: true,
-      message: 'Prescriptions fetched successfully',
-      data: prescriptions
-    });
+    res.status(200).json({ success: true, message: 'Prescriptions fetched successfully', data: prescriptions });
   } catch (error) {
-    console.error('Get patient prescriptions error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
+    return serverError(res, 'Get patient prescriptions', error);
   }
 };
 
-// Get all prescriptions by a doctor
+// GET /api/prescriptions/doctor/:doctorId — that doctor or staff
 const getDoctorPrescriptions = async (req, res) => {
   try {
     const { doctorId } = req.params;
+
+    if (!isHospitalStaff(req.user.role) && !sameId(req.user._id, doctorId)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
     const prescriptions = await Prescription.find({ doctorId })
       .populate('patientId', 'name email phone patientId')
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
-      success: true,
-      message: 'Prescriptions fetched successfully',
-      data: prescriptions
-    });
+    res.status(200).json({ success: true, message: 'Prescriptions fetched successfully', data: prescriptions });
   } catch (error) {
-    console.error('Get doctor prescriptions error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
+    return serverError(res, 'Get doctor prescriptions', error);
   }
 };
 
-// Get single prescription by ID
+// GET /api/prescriptions/:id
 const getPrescriptionById = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const prescription = await Prescription.findById(id)
+    const prescription = await Prescription.findById(req.params.id)
       .populate('patientId', 'name email phone patientId dateOfBirth gender bloodGroup allergies chronicConditions')
       .populate('doctorId', 'name email specialization doctorId qualifications');
 
     if (!prescription) {
-      return res.status(404).json({
-        success: false,
-        message: 'Prescription not found'
-      });
+      return res.status(404).json({ success: false, message: 'Prescription not found' });
     }
 
-    res.status(200).json({
-      success: true,
-      message: 'Prescription fetched successfully',
-      data: prescription
-    });
+    if (!canViewPrescription(prescription, req.user)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    res.status(200).json({ success: true, message: 'Prescription fetched successfully', data: prescription });
   } catch (error) {
-    console.error('Get prescription error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
+    return serverError(res, 'Get prescription', error);
   }
 };
 
-// Update prescription
+// PUT /api/prescriptions/:id — prescribing doctor only
 const updatePrescription = async (req, res) => {
   try {
-    const { id } = req.params;
-    const updates = req.body;
+    const existing = await Prescription.findById(req.params.id);
+
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Prescription not found' });
+    }
+
+    if (req.user.role !== 'doctor' || !sameId(existing.doctorId, req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Only the prescribing doctor can update this prescription' });
+    }
 
     const prescription = await Prescription.findByIdAndUpdate(
-      id,
-      updates,
+      req.params.id,
+      pick(req.body, UPDATABLE_FIELDS),
       { new: true, runValidators: true }
     )
       .populate('patientId', 'name email phone patientId')
       .populate('doctorId', 'name email specialization doctorId');
 
-    if (!prescription) {
-      return res.status(404).json({
-        success: false,
-        message: 'Prescription not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Prescription updated successfully',
-      data: prescription
-    });
+    res.status(200).json({ success: true, message: 'Prescription updated successfully', data: prescription });
   } catch (error) {
-    console.error('Update prescription error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
+    return serverError(res, 'Update prescription', error);
   }
 };
 
-// Delete prescription
+// DELETE /api/prescriptions/:id — prescribing doctor or admin
 const deletePrescription = async (req, res) => {
   try {
-    const { id } = req.params;
+    const existing = await Prescription.findById(req.params.id);
 
-    const prescription = await Prescription.findByIdAndDelete(id);
-
-    if (!prescription) {
-      return res.status(404).json({
-        success: false,
-        message: 'Prescription not found'
-      });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Prescription not found' });
     }
 
-    res.status(200).json({
-      success: true,
-      message: 'Prescription deleted successfully'
-    });
+    const isOwner = req.user.role === 'doctor' && sameId(existing.doctorId, req.user._id);
+    if (!isOwner && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    await existing.deleteOne();
+
+    res.status(200).json({ success: true, message: 'Prescription deleted successfully' });
   } catch (error) {
-    console.error('Delete prescription error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
+    return serverError(res, 'Delete prescription', error);
   }
 };
 
-// Get patient health summary
+// GET /api/prescriptions/health-summary/:patientId
 const getPatientHealthSummary = async (req, res) => {
   try {
     const { patientId } = req.params;
 
-    // Get patient details with health info
-    const patient = await User.findById(patientId)
-      .select('-password');
-
-    if (!patient || patient.role !== 'patient') {
-      return res.status(404).json({
-        success: false,
-        message: 'Patient not found'
-      });
+    if (!(await canAccessPatientData(req.user, patientId))) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    // Get all prescriptions
-    const prescriptions = await Prescription.find({ patientId })
-      .populate('doctorId', 'name specialization')
-      .sort({ createdAt: -1 })
-      .limit(10);
+    const patient = await User.findById(patientId).select('-password');
 
-    // Get all appointments
-    const appointments = await Appointment.find({ patientId })
-      .populate('doctorId', 'name specialization')
-      .sort({ appointmentDate: -1 })
-      .limit(10);
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
 
-    // Compile health summary
+    const [prescriptions, appointments, totalPrescriptions, totalAppointments, activePrescriptions] = await Promise.all([
+      Prescription.find({ patientId })
+        .populate('doctorId', 'name specialization')
+        .sort({ createdAt: -1 })
+        .limit(10),
+      Appointment.find({ patientId })
+        .populate('doctorId', 'name specialization')
+        .sort({ appointmentDate: -1 })
+        .limit(10),
+      Prescription.countDocuments({ patientId }),
+      Appointment.countDocuments({ patientId }),
+      Prescription.countDocuments({ patientId, status: 'active' })
+    ]);
+
     const healthSummary = {
       patient: {
         name: patient.name,
@@ -285,25 +268,12 @@ const getPatientHealthSummary = async (req, res) => {
       },
       recentPrescriptions: prescriptions,
       recentAppointments: appointments,
-      statistics: {
-        totalPrescriptions: await Prescription.countDocuments({ patientId }),
-        totalAppointments: await Appointment.countDocuments({ patientId }),
-        activePrescriptions: await Prescription.countDocuments({ patientId, status: 'active' })
-      }
+      statistics: { totalPrescriptions, totalAppointments, activePrescriptions }
     };
 
-    res.status(200).json({
-      success: true,
-      message: 'Health summary fetched successfully',
-      data: healthSummary
-    });
+    res.status(200).json({ success: true, message: 'Health summary fetched successfully', data: healthSummary });
   } catch (error) {
-    console.error('Get health summary error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
+    return serverError(res, 'Get health summary', error);
   }
 };
 

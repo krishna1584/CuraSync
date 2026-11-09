@@ -43,5 +43,12 @@ const appointmentSchema = new mongoose.Schema({
 appointmentSchema.index({ patientId: 1, appointmentDate: 1 });
 appointmentSchema.index({ doctorId: 1, appointmentDate: 1 });
 
+// A doctor can have only one scheduled appointment per day and time slot.
+// Cancelled/completed appointments do not block the slot.
+appointmentSchema.index(
+  { doctorId: 1, appointmentDate: 1, timeSlot: 1 },
+  { unique: true, partialFilterExpression: { status: 'scheduled' }, name: 'unique_scheduled_slot' }
+);
+
 const Appointment = mongoose.models.Appointment || mongoose.model('Appointment', appointmentSchema);
 module.exports = Appointment;

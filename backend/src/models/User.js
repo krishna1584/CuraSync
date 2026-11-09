@@ -45,6 +45,12 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Per-user notification choices (see Settings pages)
+  notificationPreferences: {
+    appointmentEmails: { type: Boolean, default: true }, // emails about appointments (patients)
+    inAppAlerts: { type: Boolean, default: true },       // live pop-up alerts while signed in
+    reportAlerts: { type: Boolean, default: true }       // alert when a report has been read by AI
+  },
   
   // Patient specific fields
   patientId: {

@@ -2,38 +2,26 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import { getAuthToken, getUser } from '@/lib/auth';
 
-// Temporary redirect component for demo purposes
-// In a real app, this would check authentication status and redirect accordingly
+const STAFF_ROLES = ['admin', 'nurse', 'receptionist'];
+
+// Sends a signed-in user to their own dashboard, or to sign-in if they are not signed in.
 export default function DashboardRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is logged in and get their role
-    const userRole = localStorage.getItem('userRole');
-    
-    if (!userRole) {
-      toast.error('Please log in first');
-      router.push('/auth/login');
-      return;
+    let role: string | undefined;
+    try {
+      role = getAuthToken() ? getUser()?.role : undefined;
+    } catch {
+      role = undefined;
     }
 
-    // Redirect based on role
-    switch (userRole) {
-      case 'patient':
-        router.push('/patient/dashboard');
-        break;
-      case 'doctor':
-        router.push('/doctor/dashboard');
-        break;
-      case 'admin':
-        router.push('/admin/dashboard');
-        break;
-      default:
-        toast.error('Invalid user role');
-        router.push('/auth/login');
-    }
+    if (role === 'patient') router.replace('/patient/dashboard');
+    else if (role === 'doctor') router.replace('/doctor/dashboard');
+    else if (role && STAFF_ROLES.includes(role)) router.replace('/admin/dashboard');
+    else router.replace('/auth/login');
   }, [router]);
 
   return (

@@ -22,6 +22,11 @@ const otpSchema = new mongoose.Schema({
   isUsed: {
     type: Boolean,
     default: false
+  },
+  // Wrong guesses against this code; it is deleted after too many.
+  attempts: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

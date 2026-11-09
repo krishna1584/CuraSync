@@ -47,6 +47,20 @@ const reportSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // 'image' or 'raw' (PDFs). Older reports have no value; it is derived from fileType.
+  cloudinaryResourceType: {
+    type: String,
+    enum: ['image', 'raw']
+  },
+  // 'authenticated' for private files; older reports were uploaded as public 'upload'.
+  cloudinaryDeliveryType: {
+    type: String,
+    enum: ['upload', 'authenticated'],
+    default: 'upload'
+  },
+  cloudinaryFormat: {
+    type: String
+  },
   fileName: {
     type: String,
     required: true

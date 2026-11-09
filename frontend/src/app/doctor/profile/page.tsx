@@ -77,6 +77,7 @@ export default function DoctorProfile() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [passwordData, setPasswordData] = useState<PasswordChangeData>({
@@ -229,16 +230,43 @@ export default function DoctorProfile() {
       return;
     }
 
-    toast('Password change feature coming soon!', {
-      icon: '🔐',
-    });
-    // TODO: Implement password change endpoint
-    setShowPasswordForm(false);
-    setPasswordData({
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    });
+    if (!passwordData.currentPassword) {
+      toast.error('Please enter your current password');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (response.ok && result.success) {
+        toast.success('Password changed successfully');
+        setShowPasswordForm(false);
+        setPasswordData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      } else {
+        toast.error(result.message || 'Failed to change password');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   if (loading) {
@@ -685,9 +713,10 @@ export default function DoctorProfile() {
                       </div>
                       <button
                         onClick={handlePasswordChange}
-                        className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                        disabled={changingPassword}
+                        className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                       >
-                        Update Password
+                        {changingPassword ? 'Updating…' : 'Update Password'}
                       </button>
                     </div>
                   )}

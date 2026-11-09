@@ -57,8 +57,6 @@ function LoginForm() {
     setIsLoading(true);
 
     try {
-      console.log('🔐 Attempting login to:', `${API_URL}/auth/login`);
-      console.log('📧 Email:', formData.email);
       
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
@@ -69,11 +67,8 @@ function LoginForm() {
         body: JSON.stringify({ ...formData, role }),
       });
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response ok:', response.ok);
 
       const data = await response.json();
-      console.log('📦 Response data:', data);
 
       if (data.success) {
         // Store token and user in localStorage using auth utilities
@@ -98,8 +93,10 @@ function LoginForm() {
           default:
             router.push('/dashboard');
         }
+      } else if (data.code === 'EMAIL_NOT_VERIFIED') {
+        toast.error('Please verify your email first. Enter the code we sent you.');
+        router.push(`/auth/verify-email?email=${encodeURIComponent(data.data?.email || formData.email)}`);
       } else {
-        console.error('❌ Login failed:', data.message);
         toast.error(data.message || 'Login failed');
       }
     } catch (error) {

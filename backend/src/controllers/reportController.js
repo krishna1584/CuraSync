@@ -2,7 +2,7 @@ const multer = require('multer');
 const Report = require('../models/Report');
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
-const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
+const { uploadToCloudinary, deleteFromCloudinary, getSignedFileUrl } = require('../config/cloudinary');
 const { extractMedicalData, structureExtractedData } = require('../utils/geminiService');
 
 // Configure multer for memory storage (we'll upload to Cloudinary)
@@ -27,11 +27,7 @@ const upload = multer({
   }
 });
 
-const isHospitalStaff = (role) => ['admin', 'nurse', 'receptionist'].includes(role);
-
-const doctorCanAccessPatient = async (doctorId, patientId) => (
-  Boolean(await Appointment.exists({ doctorId, patientId }))
-);
+const { isHospitalStaff, doctorCanAccessPatient, errorDetails } = require('../utils/access');
 
 const reportIsAccessible = async (report, user) => {
   if (isHospitalStaff(user.role)) return true;
@@ -95,7 +91,7 @@ const uploadReport = async (req, res) => {
       'medical-reports'
     );
 
-    console.log('Cloudinary upload successful:', cloudinaryResult.secure_url);
+    console.log('Cloudinary upload successful:', cloudinaryResult.public_id);
 
     // Create initial report entry
     const report = new Report({
@@ -104,8 +100,17 @@ const uploadReport = async (req, res) => {
       patientName: patient.name,
       reportType,
       reportTitle,
-      cloudinaryUrl: cloudinaryResult.secure_url,
+      // Signed URL: the file is private and only reachable through this signature.
+      cloudinaryUrl: getSignedFileUrl({
+        publicId: cloudinaryResult.public_id,
+        resourceType: cloudinaryResult.resource_type,
+        deliveryType: cloudinaryResult.type,
+        format: cloudinaryResult.format
+      }),
       cloudinaryPublicId: cloudinaryResult.public_id,
+      cloudinaryResourceType: cloudinaryResult.resource_type,
+      cloudinaryDeliveryType: cloudinaryResult.type,
+      cloudinaryFormat: cloudinaryResult.format,
       fileName: req.file.originalname,
       fileType: req.file.mimetype,
       testDate: new Date(testDate),
@@ -120,7 +125,7 @@ const uploadReport = async (req, res) => {
     // Extract data using AI in background (don't wait for it)
     const io = req.app.get('io');
     const connectedUsers = req.app.get('connectedUsers');
-    extractDataInBackground(report._id, cloudinaryResult.secure_url, reportType, io, connectedUsers);
+    extractDataInBackground(report._id, report.cloudinaryUrl, reportType, io, connectedUsers);
 
     res.status(201).json({
       success: true,
@@ -133,7 +138,7 @@ const uploadReport = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to upload report',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -273,7 +278,7 @@ const getAllReports = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch reports',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -313,7 +318,7 @@ const getReportById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch report',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -342,7 +347,7 @@ const getMyReports = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch reports',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -378,7 +383,13 @@ const deleteReport = async (req, res) => {
 
     // Delete from Cloudinary
     try {
-      await deleteFromCloudinary(report.cloudinaryPublicId, 'raw');
+      const resourceType = report.cloudinaryResourceType ||
+        (report.fileType && report.fileType.includes('pdf') ? 'raw' : 'image');
+      await deleteFromCloudinary(
+        report.cloudinaryPublicId,
+        resourceType,
+        report.cloudinaryDeliveryType || 'upload'
+      );
     } catch (cloudinaryError) {
       console.error('Cloudinary delete error:', cloudinaryError);
       // Continue even if Cloudinary delete fails
@@ -397,7 +408,7 @@ const deleteReport = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete report',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -452,7 +463,7 @@ const updateReport = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update report',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };
@@ -520,7 +531,7 @@ const getReportStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch statistics',
-      error: error.message
+      ...errorDetails(error)
     });
   }
 };

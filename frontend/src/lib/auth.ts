@@ -1,5 +1,7 @@
 // Client-side auth utilities for frontend
 import { User } from '@/types';
+import { API_URL } from './config';
+import { resetSocketSession } from '@/contexts/SocketContext';
 
 const TOKEN_KEY = 'token';
 const USER_KEY = 'user';
@@ -30,10 +32,17 @@ export const isAuthenticated = (): boolean => {
   return !!getAuthToken();
 };
 
-export const logout = (): void => {
+// Ends the session everywhere: server cookie, stored token, live socket, and page state.
+export const logout = async (redirectTo = '/auth/login'): Promise<void> => {
+  try {
+    await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
+  } catch {
+    // Ignore network errors; local sign-out still happens below.
+  }
   removeAuthToken();
-  // Redirect to login or handle logout logic
-  window.location.href = '/auth/login';
+  resetSocketSession();
+  // Full reload clears in-memory state (notifications, cached user data).
+  window.location.href = redirectTo;
 };
 
 export const getAuthHeaders = (): HeadersInit => {

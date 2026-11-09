@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { 
   Stethoscope, 
@@ -18,6 +18,10 @@ import {
   Menu,
   X
 } from 'lucide-react';
+import RoleGuard from '@/components/RoleGuard';
+import { logout } from '@/lib/auth';
+
+const DOCTOR_ONLY = ['doctor'];
 
 const navigation = [
   { name: 'Dashboard', href: '/doctor/dashboard', icon: LayoutDashboard },
@@ -36,7 +40,6 @@ export default function DoctorLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
   const [user, setUser] = useState<{name: string, doctorId?: string} | null>(null);
 
   useEffect(() => {
@@ -47,12 +50,11 @@ export default function DoctorLayout({
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    router.push('/auth/login');
+    logout();
   };
 
   return (
+    <RoleGuard allowedRoles={DOCTOR_ONLY} loginPortal="doctor">
     <div className="h-screen flex overflow-hidden bg-gray-100">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
@@ -179,5 +181,6 @@ export default function DoctorLayout({
         </main>
       </div>
     </div>
+    </RoleGuard>
   );
 }

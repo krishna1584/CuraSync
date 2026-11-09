@@ -20,6 +20,8 @@ import {
 import { API_URL } from '@/lib/config';
 import { useSocket } from '../../../contexts/SocketContext';
 import { NotificationBell } from '../../../components/NotificationBell';
+import { logout } from '@/lib/auth';
+import { toast } from 'react-hot-toast';
 
 interface UserData {
   _id: string;
@@ -61,6 +63,17 @@ interface RecentActivity {
   status: string;
 }
 
+const EMPTY_NEW_USER = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  password: '',
+  role: 'patient',
+  specialization: '',
+  licenseNumber: '',
+  department: ''
+};
+
 export default function AdminDashboard() {
   const [user, setUser] = useState<UserData | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -76,7 +89,7 @@ export default function AdminDashboard() {
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
-  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'patient' });
+  const [newUser, setNewUser] = useState({ ...EMPTY_NEW_USER });
   const router = useRouter();
   
   const { socket, registerUser, notifications, clearNotification } = useSocket();
@@ -106,7 +119,8 @@ export default function AdminDashboard() {
         setUser(verifiedUser);
         fetchDashboardData();
       } else {
-        localStorage.clear();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         router.push('/auth/login');
       }
     } catch (error) {
@@ -216,43 +230,71 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
+        toast.success('User deleted');
         fetchDashboardData();
+      } else {
+        const result = await response.json().catch(() => ({}));
+        toast.error(result.message || 'Failed to delete user');
       }
     } catch (error) {
       console.error('Error deleting user:', error);
+      toast.error('Failed to delete user');
     }
   };
 
   const handleAddUser = async () => {
     const token = localStorage.getItem('token');
+    const name = `${newUser.firstName} ${newUser.lastName}`.trim();
+    if (!name || !newUser.email || !newUser.password) {
+      toast.error('Name, email and password are required');
+      return;
+    }
+    if (newUser.role === 'doctor' && (!newUser.specialization.trim() || !newUser.licenseNumber.trim())) {
+      toast.error('Specialization and license number are required for doctors');
+      return;
+    }
     try {
-      const response = await fetch(`${API_URL}/auth/signup`, {
+      // Doctor and staff accounts can only be created by an admin through this endpoint.
+      const response = await fetch(`${API_URL}/users`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
         credentials: 'include',
-        body: JSON.stringify(newUser),
+        body: JSON.stringify({
+          name,
+          email: newUser.email,
+          password: newUser.password,
+          role: newUser.role,
+          ...(newUser.role === 'doctor' && {
+            specialization: newUser.specialization.trim(),
+            licenseNumber: newUser.licenseNumber.trim(),
+          }),
+          ...(newUser.role !== 'patient' && newUser.department.trim() && {
+            department: newUser.department.trim(),
+          }),
+        }),
       });
 
-      if (response.ok) {
+      const result = await response.json().catch(() => ({}));
+
+      if (response.ok && result.success) {
+        toast.success('User created successfully');
         setShowAddUserModal(false);
-        setNewUser({ firstName: '', lastName: '', email: '', password: '', role: 'patient' });
+        setNewUser({ ...EMPTY_NEW_USER });
         fetchDashboardData();
       } else {
-        const error = await response.json();
-        alert(error.message || 'Failed to add user');
+        toast.error(result.message || 'Failed to add user');
       }
     } catch (error) {
       console.error('Error adding user:', error);
-      alert('Failed to add user');
+      toast.error('Failed to add user');
     }
   };
 
   const handleLogout = () => {
-    localStorage.clear();
-    router.push('/auth/login');
+    logout();
   };
 
   if (loading) {
@@ -538,9 +580,48 @@ export default function AdminDashboard() {
                 >
                   <option value="patient">Patient</option>
                   <option value="doctor">Doctor</option>
+                  <option value="nurse">Nurse</option>
+                  <option value="receptionist">Receptionist</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
+              {newUser.role === 'doctor' && (
+                <>
+                  <div>
+                    <label htmlFor="newUserSpecialization" className="block text-sm font-medium text-gray-700 mb-1">Specialization *</label>
+                    <input
+                      id="newUserSpecialization"
+                      type="text"
+                      value={newUser.specialization}
+                      onChange={(e) => setNewUser({ ...newUser, specialization: e.target.value })}
+                      placeholder="e.g. Cardiology"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="newUserLicense" className="block text-sm font-medium text-gray-700 mb-1">Medical License Number *</label>
+                    <input
+                      id="newUserLicense"
+                      type="text"
+                      value={newUser.licenseNumber}
+                      onChange={(e) => setNewUser({ ...newUser, licenseNumber: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </>
+              )}
+              {newUser.role !== 'patient' && (
+                <div>
+                  <label htmlFor="newUserDepartment" className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                  <input
+                    id="newUserDepartment"
+                    type="text"
+                    value={newUser.department}
+                    onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => setShowAddUserModal(false)}

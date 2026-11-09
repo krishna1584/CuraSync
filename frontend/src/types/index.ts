@@ -11,6 +11,11 @@ export interface User {
   address?: string;
   profileImage?: string;
   isVerified: boolean;
+  notificationPreferences?: {
+    appointmentEmails?: boolean;
+    inAppAlerts?: boolean;
+    reportAlerts?: boolean;
+  };
   createdAt: Date;
   updatedAt: Date;
 }

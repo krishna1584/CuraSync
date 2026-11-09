@@ -1,24 +1,27 @@
 const express = require('express');
-const { 
-  getAllUsers, 
-  getUserById, 
-  getPatients, 
-  getDoctors, 
-  updateUser, 
-  deleteUser 
+const {
+  getAllUsers,
+  createUser,
+  getUserById,
+  getPatients,
+  getDoctors,
+  updateUser,
+  deleteUser
 } = require('../controllers/userController');
+const auth = require('../middleware/auth');
+const { requireRoles, STAFF_ROLES } = require('../utils/access');
 
 const router = express.Router();
-const auth = require('../middleware/auth');
 
 router.use(auth);
 
 // User routes
-router.get('/', getAllUsers);           // GET /api/users
-router.get('/patients', getPatients);   // GET /api/users/patients  
-router.get('/doctors', getDoctors);     // GET /api/users/doctors
-router.get('/:id', getUserById);        // GET /api/users/:id
-router.put('/:id', updateUser);         // PUT /api/users/:id
-router.delete('/:id', deleteUser);      // DELETE /api/users/:id
+router.get('/', requireRoles(...STAFF_ROLES), getAllUsers);   // GET /api/users (staff only)
+router.post('/', requireRoles('admin'), createUser);         // POST /api/users (admin only)
+router.get('/patients', getPatients);                         // GET /api/users/patients (staff: all, doctor: own)
+router.get('/doctors', getDoctors);                           // GET /api/users/doctors
+router.get('/:id', getUserById);                              // GET /api/users/:id
+router.put('/:id', updateUser);                               // PUT /api/users/:id (self or admin)
+router.delete('/:id', requireRoles('admin'), deleteUser);     // DELETE /api/users/:id (admin only)
 
 module.exports = router;

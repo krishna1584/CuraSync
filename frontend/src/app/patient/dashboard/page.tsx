@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useSocket } from '../../../contexts/SocketContext';
 import { NotificationBell } from '../../../components/NotificationBell';
+import { logout } from '@/lib/auth';
 
 interface Report {
   _id: string;
@@ -460,7 +461,7 @@ export default function PatientDashboard() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`${API_URL}/users`, {
+      const response = await fetch(`${API_URL}/users/doctors`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -546,8 +547,7 @@ export default function PatientDashboard() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    router.push('/auth/login');
+    logout();
   };
 
   if (loading) {

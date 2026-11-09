@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 import { API_URL } from '@/lib/config';
 import { 
   TestTube, 
@@ -148,7 +150,37 @@ interface Report {
   summary?: string;
   status: string;
   createdAt: string;
+  aiProcessingError?: string;
 }
+
+type LabTestStatus = 'ordered' | 'sample-collected' | 'in-progress' | 'completed' | 'cancelled';
+
+interface BookedLabTest {
+  _id: string;
+  testName: string;
+  testCategory?: string;
+  status: LabTestStatus;
+  scheduledDate?: string;
+  timeSlot?: string;
+  cost: number;
+  doctorId?: { name: string; specialization?: string } | null;
+}
+
+const LAB_STATUS_STYLES: Record<LabTestStatus, string> = {
+  ordered: 'bg-blue-100 text-blue-800',
+  'sample-collected': 'bg-indigo-100 text-indigo-800',
+  'in-progress': 'bg-yellow-100 text-yellow-800',
+  completed: 'bg-green-100 text-green-800',
+  cancelled: 'bg-gray-100 text-gray-600',
+};
+
+const LAB_STATUS_LABELS: Record<LabTestStatus, string> = {
+  ordered: 'Booked',
+  'sample-collected': 'Sample collected',
+  'in-progress': 'In progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
 
 export default function LabResults() {
   const router = useRouter();
@@ -157,6 +189,52 @@ export default function LabResults() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedTimeframe, setSelectedTimeframe] = useState('');
+  const [bookedTests, setBookedTests] = useState<BookedLabTest[]>([]);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  const fetchBookedTests = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const response = await fetch(`${API_URL}/lab-tests`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const result = await response.json();
+        setBookedTests(result.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch booked lab tests:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBookedTests();
+  }, [fetchBookedTests]);
+
+  const cancelLabTest = async (id: string) => {
+    if (!confirm('Cancel this lab test booking?')) return;
+    const token = localStorage.getItem('token');
+    setCancellingId(id);
+    try {
+      const response = await fetch(`${API_URL}/lab-tests/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok && result.success) {
+        toast.success('Lab test cancelled');
+        fetchBookedTests();
+      } else {
+        toast.error(result.message || 'Could not cancel this test');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   const checkAuthAndFetchReports = useCallback(async () => {
     try {
@@ -273,6 +351,55 @@ export default function LabResults() {
           <p className="text-gray-600 mt-2">View and track your laboratory test results</p>
         </div>
 
+        {/* Booked lab tests */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+              <TestTube className="h-5 w-5 mr-2 text-blue-600" />
+              Booked tests
+            </h2>
+            <Link
+              href="/patient/book-lab-test"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+            >
+              Book a test
+            </Link>
+          </div>
+          {bookedTests.length === 0 ? (
+            <p className="text-sm text-gray-500">You have no booked lab tests.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {bookedTests.map((test) => (
+                <li key={test._id} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900">{test.testName}</p>
+                    <p className="text-sm text-gray-500">
+                      {test.scheduledDate ? new Date(test.scheduledDate).toLocaleDateString() : 'Date to be confirmed'}
+                      {test.timeSlot ? ` · ${test.timeSlot}` : ''}
+                      {test.doctorId?.name ? ` · Dr. ${test.doctorId.name}` : ''}
+                      {` · ₹${test.cost}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${LAB_STATUS_STYLES[test.status] || 'bg-gray-100 text-gray-700'}`}>
+                      {LAB_STATUS_LABELS[test.status] || test.status}
+                    </span>
+                    {test.status === 'ordered' && (
+                      <button
+                        onClick={() => cancelLabTest(test._id)}
+                        disabled={cancellingId === test._id}
+                        className="text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
+                      >
+                        {cancellingId === test._id ? 'Cancelling…' : 'Cancel'}
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -332,7 +459,7 @@ export default function LabResults() {
             <h3 className="text-lg font-medium text-gray-900 mb-2">No lab results found</h3>
             <p className="text-gray-500 mb-4">Upload your medical reports to see AI-extracted lab results</p>
             <a
-              href="/upload-report"
+              href="/patient/upload-report"
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <FileText className="h-4 w-4 mr-2" />
@@ -368,7 +495,7 @@ export default function LabResults() {
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         report.aiProcessed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {report.aiProcessed ? 'Processed' : 'Processing'}
+                        {report.aiProcessed ? 'Processed' : report.aiProcessingError ? 'Not extracted' : 'Processing'}
                       </span>
                       <a
                         href={report.cloudinaryUrl}
@@ -464,7 +591,17 @@ export default function LabResults() {
                   </div>
                 )}
 
-                {!report.aiProcessed && (
+                {!report.aiProcessed && report.aiProcessingError && (
+                  <div className="p-6">
+                    <div className="text-center py-8">
+                      <AlertTriangle className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
+                      <p className="text-gray-700">We couldn&apos;t read the values from this report automatically.</p>
+                      <p className="text-sm text-gray-500 mt-1">You can still open the original file with the download button.</p>
+                    </div>
+                  </div>
+                )}
+
+                {!report.aiProcessed && !report.aiProcessingError && (
                   <div className="p-6">
                     <div className="text-center py-8">
                       <Clock className="h-12 w-12 text-gray-300 mx-auto mb-4" />

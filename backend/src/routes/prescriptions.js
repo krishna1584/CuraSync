@@ -8,10 +8,13 @@ const {
   deletePrescription,
   getPatientHealthSummary
 } = require('../controllers/prescriptionController');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-// Prescription routes
+// All prescription routes require a signed-in user; per-record checks live in the controller.
+router.use(auth);
+
 router.post('/', createPrescription);                                    // POST /api/prescriptions
 router.get('/patient/:patientId', getPatientPrescriptions);              // GET /api/prescriptions/patient/:patientId
 router.get('/doctor/:doctorId', getDoctorPrescriptions);                 // GET /api/prescriptions/doctor/:doctorId

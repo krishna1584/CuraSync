@@ -18,6 +18,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useSocket } from '@/contexts/SocketContext';
+import { toast } from 'react-hot-toast';
 import { NotificationBell } from '@/components/NotificationBell';
 
 interface Appointment {
@@ -43,6 +44,7 @@ export default function PatientAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const socketRegistered = useRef(false);
 
   useEffect(() => {
@@ -113,6 +115,50 @@ export default function PatientAppointmentsPage() {
       setAppointments([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Appointment dates are stored as the calendar day in UTC; show that same day everywhere.
+  const formatAppointmentDate = (value: string) =>
+    new Date(value).toLocaleDateString(undefined, { timeZone: 'UTC' });
+
+  // Only upcoming, still-scheduled appointments can be cancelled.
+  const canCancel = (appointment: Appointment) => {
+    if (appointment.status !== 'scheduled') return false;
+    const day = new Date(appointment.date);
+    const [hours, minutes] = (appointment.time || '00:00').split(':').map(Number);
+    const start = new Date(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), hours || 0, minutes || 0);
+    return start.getTime() > Date.now();
+  };
+
+  const cancelAppointment = async (appointment: Appointment) => {
+    const when = `${formatAppointmentDate(appointment.date)} at ${appointment.time}`;
+    if (!confirm(`Cancel your appointment with ${appointment.doctor?.name || 'the doctor'} on ${when}?`)) return;
+
+    setCancellingId(appointment._id);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/appointments/${appointment._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: 'cancelled' })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok && result.success) {
+        toast.success('Appointment cancelled');
+        setAppointments((prev) => prev.map((item) =>
+          item._id === appointment._id ? { ...item, status: 'cancelled' } : item
+        ));
+      } else {
+        toast.error(result.message || 'Could not cancel the appointment');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -223,7 +269,7 @@ export default function PatientAppointmentsPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3">
                       <div className="flex items-center text-gray-600">
                         <Calendar className="h-4 w-4 mr-2" />
-                        <span>{new Date(appointment.date).toLocaleDateString()}</span>
+                        <span>{formatAppointmentDate(appointment.date)}</span>
                       </div>
                       <div className="flex items-center text-gray-600">
                         <Clock className="h-4 w-4 mr-2" />
@@ -254,6 +300,16 @@ export default function PatientAppointmentsPage() {
                     <span className="text-xs text-gray-500">
                       Booked on {new Date(appointment.createdAt).toLocaleDateString()}
                     </span>
+                    {canCancel(appointment) && (
+                      <button
+                        type="button"
+                        onClick={() => cancelAppointment(appointment)}
+                        disabled={cancellingId === appointment._id}
+                        className="mt-1 px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {cancellingId === appointment._id ? 'Cancelling…' : 'Cancel appointment'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
