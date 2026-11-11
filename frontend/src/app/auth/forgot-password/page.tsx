@@ -3,12 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Heart } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import AuthShell from '@/components/AuthShell';
+import { PasswordField, TextField } from '@/components/FormFields';
 import { API_URL } from '@/lib/config';
-
-const inputClasses = 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500';
-const buttonClasses = 'w-full py-2 px-4 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -77,55 +75,38 @@ export default function ForgotPasswordPage() {
     }
   };
 
+  const subtitle = emailResetOn === false
+    ? 'Please ask your hospital administrator to set a new password for your account.'
+    : emailResetOn && codeSent
+      ? `Enter the 6-digit code sent to ${email}.`
+      : emailResetOn
+        ? 'Enter your email and we’ll send you a reset code.'
+        : undefined;
+
   return (
-    <div className="min-h-screen bg-blue-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <Link href="/" className="flex justify-center" aria-label="CuraSync home">
-          <Heart className="h-12 w-12 text-blue-600" />
-        </Link>
-        <h1 className="mt-6 text-center text-3xl font-bold text-gray-900">Forgot your password?</h1>
-      </div>
+    <AuthShell title="Reset your password" subtitle={subtitle}>
+      {emailResetOn && !codeSent && (
+        <form onSubmit={requestCode} className="space-y-5">
+          <TextField id="email" label="Email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <button type="submit" disabled={busy} className="btn btn-primary w-full">
+            {busy ? 'Sending…' : 'Send reset code'}
+          </button>
+        </form>
+      )}
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-6 shadow rounded-lg">
-          {emailResetOn === null ? (
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" aria-label="Loading" />
-          ) : !emailResetOn ? (
-            <p className="text-sm text-gray-600 text-center">
-              Please ask your hospital administrator to set a new password for your account.
-            </p>
-          ) : !codeSent ? (
-            <form onSubmit={requestCode} className="space-y-6">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
-                <input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClasses} />
-              </div>
-              <button type="submit" disabled={busy} className={buttonClasses}>
-                {busy ? 'Sending…' : 'Send reset code'}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={submitNewPassword} className="space-y-6">
-              <p className="text-sm text-gray-600">Enter the 6-digit code sent to <span className="font-medium break-all">{email}</span>.</p>
-              <div>
-                <label htmlFor="otp" className="block text-sm font-medium text-gray-700">Reset code</label>
-                <input id="otp" type="text" inputMode="numeric" required maxLength={6} autoComplete="one-time-code" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} className={inputClasses} />
-              </div>
-              <div>
-                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">New password</label>
-                <input id="newPassword" type="password" required minLength={6} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputClasses} />
-              </div>
-              <button type="submit" disabled={busy || otp.length !== 6} className={buttonClasses}>
-                {busy ? 'Saving…' : 'Change password'}
-              </button>
-            </form>
-          )}
+      {emailResetOn && codeSent && (
+        <form onSubmit={submitNewPassword} className="space-y-5">
+          <TextField id="otp" label="Reset code" type="text" inputMode="numeric" required maxLength={6} autoComplete="one-time-code" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} />
+          <PasswordField id="newPassword" label="New password" required minLength={6} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          <button type="submit" disabled={busy || otp.length !== 6} className="btn btn-primary w-full">
+            {busy ? 'Saving…' : 'Change password'}
+          </button>
+        </form>
+      )}
 
-          <p className="mt-6 text-center text-sm">
-            <Link href="/auth/login" className="font-medium text-blue-600 hover:text-blue-500">Back to sign in</Link>
-          </p>
-        </div>
-      </div>
-    </div>
+      <p className="mt-6 text-center text-sm">
+        <Link href="/auth/login" className="text-link">Back to sign in</Link>
+      </p>
+    </AuthShell>
   );
 }

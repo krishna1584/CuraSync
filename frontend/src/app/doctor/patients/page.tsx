@@ -11,11 +11,12 @@ import {
   Mail, 
   Calendar,
   FileText,
-  Activity,
   ArrowLeft,
   Eye,
   Plus
 } from 'lucide-react';
+import { removeAuthToken } from '@/lib/auth';
+import { toast } from 'react-hot-toast';
 
 interface Patient {
   _id: string;
@@ -78,14 +79,15 @@ export default function DoctorPatients() {
           router.push('/auth/login');
           return;
         }
-      } else {
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     }
   };
 
@@ -109,6 +111,7 @@ export default function DoctorPatients() {
       }
     } catch (error) {
       console.error('Failed to fetch patients:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -232,7 +235,7 @@ export default function DoctorPatients() {
                         <div className="text-sm text-gray-900">
                           <div className="flex items-center mb-1">
                             <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                            {patient.email}
+                            <span className="min-w-0 break-all">{patient.email}</span>
                           </div>
                           {patient.phone && (
                             <div className="flex items-center">

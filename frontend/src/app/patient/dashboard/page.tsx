@@ -8,7 +8,6 @@ import { API_URL } from '@/lib/config';
 import { 
   Calendar, 
   TestTube,
-  LogOut,
   Stethoscope,
   Phone,
   Mail,
@@ -21,7 +20,8 @@ import {
   Activity
 } from 'lucide-react';
 import { useSocket } from '../../../contexts/SocketContext';
-import { logout } from '@/lib/auth';
+import { removeAuthToken } from '@/lib/auth';
+import { toast } from 'react-hot-toast';
 
 interface Report {
   _id: string;
@@ -57,15 +57,13 @@ function PatientReportsSection({ userId }: { userId: string }) {
     if (userId) {
       fetchReports();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   // Listen for report processing completion
   useEffect(() => {
     if (!socket) return;
 
-    const handleReportProcessed = (data: { reportId: string }) => {
-      console.log('📥 Report processed notification received:', data);
+    const handleReportProcessed = () => {
       // Refresh reports to show updated data
       fetchReports();
     };
@@ -83,7 +81,6 @@ function PatientReportsSection({ userId }: { userId: string }) {
     if (!hasPendingReports) return;
 
     const interval = setInterval(() => {
-      console.log('🔄 Auto-refreshing reports (pending reports detected)');
       fetchReports();
     }, 10000); // Check every 10 seconds
 
@@ -109,6 +106,7 @@ function PatientReportsSection({ userId }: { userId: string }) {
       }
     } catch (error) {
       console.error('Failed to fetch reports:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -142,9 +140,9 @@ function PatientReportsSection({ userId }: { userId: string }) {
     <div className="space-y-4">
       {reports.map((report) => (
         <div key={report._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <FileText className="h-4 w-4 text-blue-600" />
                 <h3 className="font-semibold text-gray-900">{report.reportTitle}</h3>
                 <span className={`px-2 py-1 rounded-full text-xs ${
@@ -271,7 +269,7 @@ function PatientReportsSection({ userId }: { userId: string }) {
               href={report.cloudinaryUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium ml-4"
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium sm:ml-4"
             >
               View Report
             </a>
@@ -390,7 +388,6 @@ export default function PatientDashboard() {
   useEffect(() => {
     if (socket && isConnected) {
       const handlePrescriptionNotification = () => {
-        console.log('📨 Prescription notification received, refreshing prescriptions...');
         fetchPrescriptions();
       };
 
@@ -407,7 +404,6 @@ export default function PatientDashboard() {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('No token found, redirecting to login');
         router.push('/auth/login');
         return;
       }
@@ -421,35 +417,29 @@ export default function PatientDashboard() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Auth verify result:', result);
         const userData = result.data?.user || result.user || result;
-        console.log('User data:', userData);
         
         if (!userData || !userData.role) {
-          console.log('Invalid user data structure');
-          localStorage.removeItem('token');
+          removeAuthToken();
           router.push('/auth/login');
           return;
         }
         
         if (userData.role !== 'patient') {
-          console.log('User is not a patient, role:', userData.role);
           router.push('/auth/login');
           return;
         }
         
         setUser(userData);
-      } else {
-        console.log('Auth verify failed with status:', response.status);
-        const errorData = await response.json().catch(() => ({}));
-        console.log('Error data:', errorData);
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -475,6 +465,7 @@ export default function PatientDashboard() {
       }
     } catch (error) {
       console.error('Failed to fetch doctors:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setDoctorsLoading(false);
     }
@@ -495,11 +486,11 @@ export default function PatientDashboard() {
       if (response.ok) {
         const result = await response.json();
         const appointmentsData = result.data || result;
-        console.log('Patient appointments:', appointmentsData);
         setAppointments(appointmentsData);
       }
     } catch (error) {
       console.error('Failed to fetch appointments:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setAppointmentsLoading(false);
     }
@@ -520,11 +511,11 @@ export default function PatientDashboard() {
       if (response.ok) {
         const result = await response.json();
         const prescriptionsData = result.data || result;
-        console.log('Patient prescriptions:', prescriptionsData);
         setPrescriptions(prescriptionsData);
       }
     } catch (error) {
       console.error('Failed to fetch prescriptions:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setPrescriptionsLoading(false);
     }
@@ -543,10 +534,6 @@ export default function PatientDashboard() {
       default:
         return 'bg-gray-100 text-gray-700';
     }
-  };
-
-  const handleLogout = () => {
-    logout();
   };
 
   if (loading) {
@@ -579,17 +566,10 @@ export default function PatientDashboard() {
             </div>
             <p className="text-gray-600">Welcome back, {user?.name}! Manage your healthcare needs.</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </button>
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
           {/* Book Doctor */}
           <Link href="/patient/book-appointment" className="bg-white rounded-lg p-6 shadow hover:shadow-lg transition-shadow">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
@@ -641,7 +621,7 @@ export default function PatientDashboard() {
                 <div key={appointment._id} className="border rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow">
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-0">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
                         <h3 className="font-semibold text-gray-900">Dr. {appointment.doctor?.name || 'Unknown'}</h3>
                         <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(appointment.status)}`}>
                           {appointment.status}
@@ -719,7 +699,7 @@ export default function PatientDashboard() {
                 <div key={prescription._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
                         <Pill className="h-4 w-4 text-blue-600" />
                         <h3 className="font-semibold text-gray-900">
                           Dr. {prescription.doctorId?.name || 'Unknown'}
@@ -785,17 +765,19 @@ export default function PatientDashboard() {
             <div className="grid gap-4 md:grid-cols-2">
               {doctors.map((doctor) => (
                 <div key={doctor._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900">{doctor.name}</h3>
                       {doctor.specialization && (
                         <p className="text-sm text-blue-600 mb-2">{doctor.specialization}</p>
                       )}
                       <div className="space-y-1">
+                        {doctor.email && (
                         <div className="flex items-center text-sm text-gray-600">
                           <Mail className="h-4 w-4 mr-2" />
-                          {doctor.email}
+                          <span className="min-w-0 break-all">{doctor.email}</span>
                         </div>
+                        )}
                         {doctor.phone && (
                           <div className="flex items-center text-sm text-gray-600">
                             <Phone className="h-4 w-4 mr-2" />

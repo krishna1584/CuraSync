@@ -39,15 +39,27 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// Rate limiting
+// Rate limiting. One page view makes several API calls, so the general limit is generous;
+// the endpoints that accept passwords or codes are limited much more tightly.
+const limitResponse = { success: false, message: 'Too many requests. Please wait a few minutes and try again.' };
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  windowMs: 15 * 60 * 1000,
+  max: 2000,
+  message: limitResponse,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const credentialLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: limitResponse,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
+['login', 'signup', 'verify-email', 'resend-otp', 'forgot-password', 'reset-password'].forEach((endpoint) => {
+  app.use(`/api/auth/${endpoint}`, credentialLimiter);
+});
 
 // CORS configuration (exact origins only; see config/origins.js)
 app.use(cors({

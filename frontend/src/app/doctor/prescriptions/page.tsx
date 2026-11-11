@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { removeAuthToken } from '@/lib/auth';
 
 interface Prescription {
   _id: string;
@@ -93,14 +94,15 @@ export default function DoctorPrescriptions() {
           router.push('/auth/login');
           return;
         }
-      } else {
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     }
   };
 
@@ -192,7 +194,7 @@ export default function DoctorPrescriptions() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-600">Total Prescriptions</h3>

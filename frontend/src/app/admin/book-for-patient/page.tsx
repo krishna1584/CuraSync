@@ -244,7 +244,7 @@ export default function AdminBookingPage() {
                     <div className="text-sm text-gray-600 mt-1">
                       <div className="flex items-center">
                         <Mail className="h-3 w-3 mr-1" />
-                        {patient.email}
+                        <span className="min-w-0 break-all">{patient.email}</span>
                       </div>
                       {patient.phone && (
                         <div className="flex items-center mt-1">
@@ -351,7 +351,7 @@ export default function AdminBookingPage() {
                     <div className="text-sm text-gray-600 mt-1">
                       <div className="flex items-center">
                         <Mail className="h-3 w-3 mr-1" />
-                        {doctor.email}
+                        <span className="min-w-0 break-all">{doctor.email}</span>
                       </div>
                       {doctor.phone && (
                         <div className="flex items-center mt-1">

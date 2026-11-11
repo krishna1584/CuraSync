@@ -31,6 +31,8 @@ export default function RoleGuard({ allowedRoles, loginPortal, children }: RoleG
   const router = useRouter();
   const { registerUser } = useSocket();
   const [authorized, setAuthorized] = useState(false);
+  const [serverProblem, setServerProblem] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,9 +50,15 @@ export default function RoleGuard({ allowedRoles, loginPortal, children }: RoleG
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (!response.ok) {
+        if (response.status === 401) {
           removeAuthToken();
           router.replace(loginUrl);
+          return;
+        }
+
+        // Busy or failing server: keep the session and let the user retry.
+        if (!response.ok) {
+          if (!cancelled) setServerProblem(true);
           return;
         }
 
@@ -75,8 +83,8 @@ export default function RoleGuard({ allowedRoles, loginPortal, children }: RoleG
           registerUser({ userId: user._id, role: user.role, name: user.name });
         }
       } catch {
-        // Network failure: send the user to log in again rather than show protected UI.
-        router.replace(loginUrl);
+        // Network failure: keep the session and let the user retry.
+        if (!cancelled) setServerProblem(true);
       }
     };
 
@@ -84,7 +92,22 @@ export default function RoleGuard({ allowedRoles, loginPortal, children }: RoleG
     return () => {
       cancelled = true;
     };
-  }, [allowedRoles, loginPortal, router, registerUser]);
+  }, [allowedRoles, loginPortal, router, registerUser, attempt]);
+
+  if (serverProblem && !authorized) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <p className="text-gray-700">We couldn&apos;t reach the server. Please try again.</p>
+        <button
+          type="button"
+          onClick={() => { setServerProblem(false); setAttempt((value) => value + 1); }}
+          className="btn btn-primary"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   if (!authorized) {
     return (

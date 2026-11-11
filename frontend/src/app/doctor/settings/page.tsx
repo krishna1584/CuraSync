@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { API_URL } from '@/lib/config';
 import { 
-  Settings,
   User,
   Bell,
   Lock,
@@ -13,16 +12,13 @@ import {
   EyeOff,
   Shield,
   Calendar,
-  Clock,
-  Mail,
-  Phone,
   Save,
   ArrowLeft,
-  Edit2,
-  Briefcase
+  Edit2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import NotificationPreferencesForm, { NotificationPreferences } from '@/components/NotificationPreferencesForm';
+import { removeAuthToken } from '@/lib/auth';
 
 interface UserData {
   _id: string;
@@ -122,14 +118,15 @@ export default function DoctorSettings() {
           consultationFee: userData.consultationFee || 0
         });
         setAvailability((userData.availability || []).sort((a: { day: string }, b: { day: string }) => weekDays.indexOf(a.day) - weekDays.indexOf(b.day)));
-      } else {
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -386,7 +383,7 @@ export default function DoctorSettings() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <p className="text-gray-900">{user?.email}</p>
+                  <p className="text-gray-900 break-all">{user?.email}</p>
                   <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                 </div>
 

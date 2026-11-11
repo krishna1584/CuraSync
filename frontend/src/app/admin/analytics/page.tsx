@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { TrendingUp, Calendar, FileText, Activity } from 'lucide-react';
 import { API_URL } from '@/lib/config';
+import { toast } from 'react-hot-toast';
 
 interface AnalyticsData {
   appointmentsByMonth: { month: string; count: number }[];
@@ -125,6 +126,7 @@ export default function AdminAnalyticsPage() {
       setAnalytics(buildAnalytics(appointments, reports, users));
     } catch (err) {
       console.error('Error fetching analytics:', err);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       setError('Could not load analytics. Please refresh the page.');
     } finally {
       setLoading(false);

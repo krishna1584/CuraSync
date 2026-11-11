@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/config';
 import { ArrowLeft, Pill, Calendar, User as UserIcon, FileText, Activity, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { removeAuthToken } from '@/lib/auth';
 
 interface Prescription {
   _id: string;
@@ -78,13 +79,15 @@ export default function PatientPrescriptions() {
         }
         
         setUser(userData);
-      } else {
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -98,6 +101,7 @@ export default function PatientPrescriptions() {
     if (user) {
       fetchPrescriptions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchPrescriptions = async () => {

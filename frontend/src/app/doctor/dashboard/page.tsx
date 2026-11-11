@@ -10,7 +10,6 @@ import {
   ClipboardList, 
   User,
   Calendar,
-  LogOut,
   Phone,
   Mail,
   Heart,
@@ -20,7 +19,8 @@ import {
   Activity
 } from 'lucide-react';
 import { useSocket } from '../../../contexts/SocketContext';
-import { logout } from '@/lib/auth';
+import { removeAuthToken } from '@/lib/auth';
+import { toast } from 'react-hot-toast';
 
 interface Report {
   _id: string;
@@ -71,6 +71,7 @@ function DoctorReportsSection() {
       }
     } catch (error) {
       console.error('Failed to fetch reports:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -98,9 +99,9 @@ function DoctorReportsSection() {
     <div className="space-y-3">
       {reports.map((report) => (
         <div key={report._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <FileText className="h-4 w-4 text-blue-600" />
                 <h3 className="font-semibold text-gray-900">{report.patient?.name || 'Unknown Patient'}</h3>
                 {report.patient?.patientId && (
@@ -163,7 +164,7 @@ function DoctorReportsSection() {
               href={report.cloudinaryUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium ml-4"
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium sm:ml-4"
             >
               View
             </a>
@@ -256,7 +257,6 @@ export default function DoctorDashboard() {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('No token found, redirecting to login');
         router.push('/auth/login');
         return;
       }
@@ -270,35 +270,29 @@ export default function DoctorDashboard() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Auth verify result:', result);
         const userData = result.data?.user || result.user || result;
-        console.log('User data:', userData);
         
         if (!userData || !userData.role) {
-          console.log('Invalid user data structure');
-          localStorage.removeItem('token');
+          removeAuthToken();
           router.push('/auth/login');
           return;
         }
         
         if (userData.role !== 'doctor') {
-          console.log('User is not a doctor, role:', userData.role);
           router.push('/auth/login');
           return;
         }
         
         setUser(userData);
-      } else {
-        console.log('Auth verify failed with status:', response.status);
-        const errorData = await response.json().catch(() => ({}));
-        console.log('Error data:', errorData);
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -324,6 +318,7 @@ export default function DoctorDashboard() {
       }
     } catch (error) {
       console.error('Failed to fetch patients:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setPatientsLoading(false);
     }
@@ -344,18 +339,14 @@ export default function DoctorDashboard() {
       if (response.ok) {
         const result = await response.json();
         const appointmentsData = result.data || result;
-        console.log('Doctor appointments:', appointmentsData);
         setAppointments(appointmentsData);
       }
     } catch (error) {
       console.error('Failed to fetch appointments:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setAppointmentsLoading(false);
     }
-  };
-
-  const handleLogout = () => {
-    logout();
   };
 
   if (loading) {
@@ -388,13 +379,6 @@ export default function DoctorDashboard() {
             </div>
             <p className="text-gray-600">Welcome, Dr. {user?.name}! Manage your patients and medical practice.</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </button>
         </div>
 
         {/* Quick Actions */}
@@ -499,7 +483,7 @@ export default function DoctorDashboard() {
                       <div className="space-y-1 mt-2">
                         <div className="flex items-center text-sm text-gray-600">
                           <Mail className="h-4 w-4 mr-2" />
-                          {patient.email}
+                          <span className="min-w-0 break-all">{patient.email}</span>
                         </div>
                         {patient.phone && (
                           <div className="flex items-center text-sm text-gray-600">

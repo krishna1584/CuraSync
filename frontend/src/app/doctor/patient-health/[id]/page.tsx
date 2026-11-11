@@ -8,7 +8,6 @@ import {
   User as UserIcon,
   Calendar,
   FileText,
-  Activity,
   Pill,
   Mail,
   Phone,
@@ -17,6 +16,7 @@ import {
   AlertCircle,
   Clock
 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface Patient {
   name: string;
@@ -119,6 +119,7 @@ export default function PatientHealthRecordsPage() {
       }
     } catch (error) {
       console.error('Failed to fetch health summary:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -274,7 +275,7 @@ export default function PatientHealthRecordsPage() {
                         <Mail className="inline h-4 w-4 mr-1" />
                         Email
                       </label>
-                      <p className="text-gray-900">{patient.email}</p>
+                      <p className="text-gray-900 break-all">{patient.email}</p>
                     </div>
                     {patient.phone && (
                       <div>

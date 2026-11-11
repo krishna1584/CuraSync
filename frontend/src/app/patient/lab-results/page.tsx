@@ -11,10 +11,6 @@ import {
   Search,
   Filter,
   Calendar,
-  User,
-  TrendingUp,
-  TrendingDown,
-  Minus,
   AlertTriangle,
   CheckCircle,
   Clock,
@@ -25,6 +21,7 @@ import {
   Thermometer,
   Weight
 } from 'lucide-react';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 // Helper function to get metric-specific information
 const getMetricInfo = (key: string) => {
@@ -183,6 +180,7 @@ const LAB_STATUS_LABELS: Record<LabTestStatus, string> = {
 };
 
 export default function LabResults() {
+  const confirmAction = useConfirm();
   const router = useRouter();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,6 +203,7 @@ export default function LabResults() {
       }
     } catch (error) {
       console.error('Failed to fetch booked lab tests:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     }
   }, []);
 
@@ -213,7 +212,7 @@ export default function LabResults() {
   }, [fetchBookedTests]);
 
   const cancelLabTest = async (id: string) => {
-    if (!confirm('Cancel this lab test booking?')) return;
+    if (!(await confirmAction({ title: 'Cancel this lab test?', confirmLabel: 'Cancel test', danger: true }))) return;
     const token = localStorage.getItem('token');
     setCancellingId(id);
     try {
@@ -255,11 +254,14 @@ export default function LabResults() {
         const result = await response.json();
         const reportsData = result.data || result;
         setReports(reportsData);
-      } else {
+      } else if (response.status === 401) {
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Failed to fetch reports:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -302,45 +304,8 @@ export default function LabResults() {
     return matchesSearch && matchesCategory;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'normal':
-        return 'bg-green-100 text-green-800';
-      case 'high':
-      case 'low':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'critical':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
-  const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'normal':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'high':
-        return <TrendingUp className="h-4 w-4 text-yellow-600" />;
-      case 'low':
-        return <TrendingDown className="h-4 w-4 text-yellow-600" />;
-      case 'critical':
-        return <AlertTriangle className="h-4 w-4 text-red-600" />;
-      default:
-        return <Minus className="h-4 w-4 text-gray-600" />;
-    }
-  };
 
-  const getTestStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="h-5 w-5 text-green-600" />;
-      case 'pending':
-        return <Clock className="h-5 w-5 text-yellow-600" />;
-      default:
-        return <TestTube className="h-5 w-5 text-gray-600" />;
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -472,13 +437,13 @@ export default function LabResults() {
               <div key={report._id} className="bg-white rounded-lg shadow-sm border">
                 {/* Test Header */}
                 <div className="p-6 border-b border-gray-200">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex items-start space-x-4 min-w-0">
                       <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                         <CheckCircle className="h-6 w-6 text-blue-600" />
                       </div>
                       
-                      <div>
+                      <div className="min-w-0">
                         <h3 className="text-lg font-semibold text-gray-900">{report.reportTitle}</h3>
                         <p className="text-blue-600 font-medium">{report.reportType}</p>
                         
@@ -573,11 +538,11 @@ export default function LabResults() {
                               </h5>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {items.map(([key, value]) => (
-                                  <div key={key} className="flex justify-between items-start p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-100 hover:border-purple-300 transition-colors">
+                                  <div key={key} className="flex flex-col sm:flex-row sm:justify-between items-start gap-1 p-4 bg-gray-50 rounded-lg border border-gray-200">
                                     <span className="text-gray-700 font-medium capitalize flex-1">
                                       {formatFieldName(key)}:
                                     </span>
-                                    <span className="text-gray-900 font-semibold ml-4 text-right flex-1">
+                                    <span className="text-gray-900 font-semibold sm:ml-4 sm:text-right flex-1">
                                       {String(value)}
                                     </span>
                                   </div>

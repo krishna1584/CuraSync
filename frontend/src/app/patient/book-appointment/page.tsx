@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useSocket } from '@/contexts/SocketContext';
+import { removeAuthToken } from '@/lib/auth';
 
 interface Doctor {
   _id: string;
@@ -136,7 +137,6 @@ export default function BookAppointmentPage() {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('No token found, redirecting to login');
         router.push('/auth/login');
         return;
       }
@@ -150,36 +150,30 @@ export default function BookAppointmentPage() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Auth verify result:', result);
         const userData = result.data?.user || result.user || result;
-        console.log('User data:', userData);
         
         if (!userData || !userData.role) {
-          console.log('Invalid user data structure');
-          localStorage.removeItem('token');
+          removeAuthToken();
           router.push('/auth/login');
           return;
         }
         
         if (userData.role !== 'patient') {
-          console.log('User is not a patient, role:', userData.role);
           router.push('/auth/login');
           return;
         }
         
         setUser(userData);
         fetchDoctors();
-      } else {
-        console.log('Auth verify failed with status:', response.status);
-        const errorData = await response.json().catch(() => ({}));
-        console.log('Error data:', errorData);
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     }
   };
 
@@ -318,10 +312,12 @@ export default function BookAppointmentPage() {
                           <p className="text-sm text-blue-600 mt-1">{doctor.specialization}</p>
                         )}
                         <div className="mt-2 space-y-1">
+                          {doctor.email && (
                           <div className="flex items-center text-sm text-gray-600">
                             <Mail className="h-3 w-3 mr-2" />
-                            {doctor.email}
+                            <span className="min-w-0 break-all">{doctor.email}</span>
                           </div>
+                          )}
                           {doctor.phone && (
                             <div className="flex items-center text-sm text-gray-600">
                               <Phone className="h-3 w-3 mr-2" />

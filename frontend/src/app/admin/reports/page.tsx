@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, Search, Eye, Calendar, User } from 'lucide-react';
 import { API_URL } from '@/lib/config';
+import { toast } from 'react-hot-toast';
 
 // Shape returned by GET /api/reports
 interface Report {
@@ -104,6 +105,7 @@ export default function AdminReportsPage() {
       }
     } catch (error) {
       console.error('Error fetching reports:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       setLoadError('Could not reach the server. Please try again.');
     } finally {
       setLoading(false);

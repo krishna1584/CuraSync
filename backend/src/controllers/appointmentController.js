@@ -285,17 +285,6 @@ const createAppointment = async (req, res) => {
     const io = req.app.get('io');
     const connectedUsers = req.app.get('connectedUsers');
     
-    console.log('\n=== Notification Debug ===');
-    console.log('Connected Users:', Object.keys(connectedUsers).map(id => ({
-      id,
-      name: connectedUsers[id].name,
-      role: connectedUsers[id].role,
-      socketId: connectedUsers[id].socketId
-    })));
-    console.log('Doctor ID to notify:', doctorId.toString());
-    console.log('Patient ID to notify:', patientId.toString());
-    console.log('========================\n');
-    
     // Notify doctor about new appointment
     const doctorKey = Object.keys(connectedUsers).find(
       key => key === doctorId.toString() || key === doctorId
@@ -310,16 +299,7 @@ const createAppointment = async (req, res) => {
         timestamp: new Date().toISOString()
       };
       
-      console.log('🔔 Sending notification to doctor:');
-      console.log('   Name:', connectedUsers[doctorKey].name);
-      console.log('   Socket ID:', connectedUsers[doctorKey].socketId);
-      console.log('   Data:', notificationData.type, '-', notificationData.message);
-      
       io.to(connectedUsers[doctorKey].socketId).emit('appointment_notification', notificationData);
-      console.log('✅ Doctor notification sent');
-    } else {
-      console.log('❌ Doctor not connected. Doctor ID:', doctorId.toString());
-      console.log('   Available IDs:', Object.keys(connectedUsers));
     }
 
     // Send notification to patient as well
@@ -336,16 +316,7 @@ const createAppointment = async (req, res) => {
         timestamp: new Date().toISOString()
       };
       
-      console.log('🔔 Sending notification to patient:');
-      console.log('   Name:', connectedUsers[patientKey].name);
-      console.log('   Socket ID:', connectedUsers[patientKey].socketId);
-      console.log('   Data:', notificationData.type, '-', notificationData.message);
-      
       io.to(connectedUsers[patientKey].socketId).emit('appointment_notification', notificationData);
-      console.log('✅ Patient notification sent');
-    } else {
-      console.log('❌ Patient not connected. Patient ID:', patientId.toString());
-      console.log('   Available IDs:', Object.keys(connectedUsers));
     }
 
     // Broadcast appointment update to all connected admin users

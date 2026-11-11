@@ -51,7 +51,3 @@ export const getAuthHeaders = (): HeadersInit => {
     ? { Authorization: `Bearer ${token}` }
     : {};
 };
-
-export const generateId = (prefix: string, count: number): string => {
-  return `${prefix}${String(count + 1).padStart(6, '0')}`;
-};

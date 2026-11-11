@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import NotificationPreferencesForm, { NotificationPreferences } from '@/components/NotificationPreferencesForm';
+import { removeAuthToken } from '@/lib/auth';
 
 interface UserData {
   _id: string;
@@ -72,14 +73,15 @@ export default function PatientSettings() {
         }
         
         setUser(userData);
-      } else {
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -298,7 +300,6 @@ export default function PatientSettings() {
                       <li>• Use a strong, unique password</li>
                       <li>• Never share your password with anyone</li>
                       <li>• Change your password regularly</li>
-                      <li>• Enable two-factor authentication (coming soon)</li>
                     </ul>
                   </div>
                 </div>

@@ -13,12 +13,10 @@ import {
   User,
   Eye,
   Plus,
-  Activity,
   Mail,
   Phone,
   MapPin,
   Clock,
-  LogOut,
   Heart,
   Edit2,
   Save,
@@ -26,9 +24,9 @@ import {
   Droplet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { logout } from '@/lib/auth';
 import FileDropZone from '@/components/FileDropZone';
 import { REPORT_TYPES, todayLocalDate } from '@/lib/reportFiles';
+import { removeAuthToken } from '@/lib/auth';
 
 interface UserData {
   _id: string;
@@ -107,7 +105,7 @@ export default function MedicalRecords() {
   const [reportsLoading, setReportsLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'profile' | 'appointments' | 'medical'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'appointments'>('profile');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -172,14 +170,15 @@ export default function MedicalRecords() {
         }
         
         setUser(userData);
-      } else {
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -233,11 +232,8 @@ export default function MedicalRecords() {
       }
     } catch (error) {
       console.error('Failed to fetch appointments:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     }
-  };
-
-  const handleLogout = () => {
-    logout();
   };
 
   const handleEditClick = () => {
@@ -426,13 +422,6 @@ export default function MedicalRecords() {
             </h1>
             <p className="text-gray-600 mt-2">View your complete medical information and history</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </button>
         </div>
 
         {/* Tabs */}
@@ -459,17 +448,6 @@ export default function MedicalRecords() {
             >
               <Calendar className="inline h-5 w-5 mr-2" />
               Appointment History ({appointments.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('medical')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'medical'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Activity className="inline h-5 w-5 mr-2" />
-              Medical History
             </button>
           </nav>
         </div>
@@ -525,7 +503,7 @@ export default function MedicalRecords() {
                       <Mail className="inline h-4 w-4 mr-2" />
                       Email
                     </label>
-                    <p className="text-gray-900">{user.email}</p>
+                    <p className="text-gray-900 break-all">{user.email}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -838,18 +816,6 @@ export default function MedicalRecords() {
                 </Link>
               </div>
             )}
-          </div>
-        )}
-
-        {/* Medical History Tab */}
-        {activeTab === 'medical' && user && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Medical Information</h2>
-            <div className="text-center py-12">
-              <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-4">Medical history feature coming soon!</p>
-              <p className="text-sm text-gray-500">This section will include allergies, medications, and medical history</p>
-            </div>
           </div>
         )}
 

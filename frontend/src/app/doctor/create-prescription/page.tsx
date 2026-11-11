@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Suspense } from 'react';
+import { removeAuthToken } from '@/lib/auth';
 
 interface User {
   _id: string;
@@ -99,13 +100,15 @@ function CreatePrescriptionForm() {
         
         setUser(userData);
         fetchPatients();
-      } else {
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -125,6 +128,7 @@ function CreatePrescriptionForm() {
       }
     } catch (error) {
       console.error('Failed to fetch patients:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     }
   };
 
@@ -569,7 +573,7 @@ function CreatePrescriptionForm() {
           </div>
 
           {/* Submit Buttons */}
-          <div className="flex gap-3">
+          <div className="flex flex-col-reverse sm:flex-row gap-3">
             <button
               type="button"
               onClick={() => router.back()}

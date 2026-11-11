@@ -71,7 +71,6 @@ const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 let globalSocket: Socket | null = null;
 let registeredUserId: string | null = null;
-let currentUserRole: string | null = null;
 let lastRegisteredUser: UserData | null = null;
 
 // The server identifies the user from the JWT, never from client-supplied IDs.
@@ -85,7 +84,6 @@ const emitRegistration = () => {
 // Disconnect and forget the current user (call on logout).
 export const resetSocketSession = () => {
   registeredUserId = null;
-  currentUserRole = null;
   lastRegisteredUser = null;
   if (globalSocket) {
     globalSocket.disconnect();
@@ -102,7 +100,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Use existing socket or create new one
     if (!globalSocket) {
-      console.log('🔌 Creating new socket connection...');
       globalSocket = io(SOCKET_URL, {
         reconnection: true,
         reconnectionDelay: 1000,
@@ -111,28 +108,21 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       });
 
       globalSocket.on('connect', () => {
-        console.log('✅ Connected to server:', globalSocket?.id);
         setIsConnected(true);
         registeredUserId = null; // Reset on new connection
         // Re-authenticate automatically after a reconnect
         if (lastRegisteredUser && emitRegistration()) {
           registeredUserId = lastRegisteredUser.userId;
         } else {
-          currentUserRole = null;
           setUserRole(null);
         }
       });
 
-      globalSocket.on('registration_confirmed', (data) => {
-        console.log('✅ Registration confirmed:', data);
-      });
 
 
       globalSocket.on('disconnect', () => {
-        console.log('❌ Disconnected from server');
         setIsConnected(false);
         registeredUserId = null; // Reset on disconnect
-        currentUserRole = null;
         setUserRole(null);
       });
 
@@ -178,30 +168,24 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         pushNotification('report_processed', message, data.timestamp);
         toast.success(`${message}. Open Lab Results to see the values.`);
       });
-
-      console.log('✅ All socket event listeners registered');
     }
 
     setSocket(globalSocket);
 
     // Cleanup only on app unmount (not on component unmount)
     return () => {
-      // Don't disconnect here - keep connection alive
-      console.log('SocketProvider cleanup (keeping connection alive)');
     };
   }, []);
 
   const registerUser = useCallback((userData: UserData) => {
     // If switching to a different user, clear notifications and reset
     if (registeredUserId && registeredUserId !== userData.userId) {
-      console.log(`Switching user from ${registeredUserId} to ${userData.userId}`);
       setNotifications([]);
       registeredUserId = null;
     }
 
     // Prevent duplicate registration for the same user
     if (registeredUserId === userData.userId) {
-      console.log(`User ${userData.name} already registered, skipping...`);
       return;
     }
 
@@ -210,19 +194,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     if (globalSocket && globalSocket.connected) {
       if (!emitRegistration()) return;
       registeredUserId = userData.userId;
-      currentUserRole = userData.role;
       setUserRole(userData.role);
-      console.log(`Registered user: ${userData.name} (${userData.role}) with ID: ${userData.userId}`);
     } else {
-      console.log('Socket not connected, waiting to register user...');
       // Wait for connection and retry
       setTimeout(() => {
         if (globalSocket && globalSocket.connected && registeredUserId !== userData.userId) {
           if (!emitRegistration()) return;
           registeredUserId = userData.userId;
-          currentUserRole = userData.role;
           setUserRole(userData.role);
-          console.log(`Registered user (retry): ${userData.name} (${userData.role})`);
         }
       }, 1000);
     }

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useSocket } from '@/contexts/SocketContext';
 import { toast } from 'react-hot-toast';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 interface Appointment {
   _id: string;
@@ -37,6 +38,7 @@ interface Appointment {
 }
 
 export default function PatientAppointmentsPage() {
+  const confirmAction = useConfirm();
   const router = useRouter();
   const { socket, isConnected, registerUser } = useSocket();
   const [user, setUser] = useState<UserType | null>(null);
@@ -80,8 +82,13 @@ export default function PatientAppointmentsPage() {
         credentials: 'include'
       });
 
-      if (!verifyResponse.ok) {
+      if (verifyResponse.status === 401) {
         router.push('/auth/login');
+        return;
+      }
+
+      if (!verifyResponse.ok) {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
         return;
       }
 
@@ -107,10 +114,12 @@ export default function PatientAppointmentsPage() {
         setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
       } else {
         console.error('Failed to fetch appointments:', response.statusText);
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
         setAppointments([]);
       }
     } catch (error) {
       console.error('Failed to fetch appointments:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       setAppointments([]);
     } finally {
       setLoading(false);
@@ -132,7 +141,7 @@ export default function PatientAppointmentsPage() {
 
   const cancelAppointment = async (appointment: Appointment) => {
     const when = `${formatAppointmentDate(appointment.date)} at ${appointment.time}`;
-    if (!confirm(`Cancel your appointment with ${appointment.doctor?.name || 'the doctor'} on ${when}?`)) return;
+    if (!(await confirmAction({ title: 'Cancel this appointment?', message: `With ${appointment.doctor?.name || 'the doctor'} on ${when}.`, confirmLabel: 'Cancel appointment', danger: true }))) return;
 
     setCancellingId(appointment._id);
     try {
@@ -252,7 +261,7 @@ export default function PatientAppointmentsPage() {
               <div key={appointment._id} className="bg-white rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition-shadow">
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center mb-2">
+                    <div className="flex flex-wrap items-center gap-y-1 mb-2">
                       <Stethoscope className="h-5 w-5 text-blue-600 mr-3" />
                       <h3 className="text-lg font-semibold text-gray-900">{appointment.doctor?.name || 'Unknown Doctor'}</h3>
                       <span className={`ml-4 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>

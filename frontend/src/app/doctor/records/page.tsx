@@ -79,6 +79,7 @@ export default function DoctorRecords() {
       }
     } catch (error) {
       console.error('Failed to fetch records:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       setLoadError('Could not reach the server. Please try again.');
     } finally {
       setLoading(false);
@@ -212,7 +213,7 @@ export default function DoctorRecords() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-600">Total Records</h3>

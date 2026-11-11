@@ -7,8 +7,6 @@ import {
   Stethoscope, 
   Calendar, 
   FileText, 
-  TrendingUp, 
-  TrendingDown, 
   Activity,
   Clock,
   CheckCircle,
@@ -20,8 +18,9 @@ import {
 } from 'lucide-react';
 import { API_URL } from '@/lib/config';
 import { useSocket } from '../../../contexts/SocketContext';
-import { logout } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { removeAuthToken } from '@/lib/auth';
 
 interface UserData {
   _id: string;
@@ -92,6 +91,9 @@ export default function AdminDashboard() {
   const [newUser, setNewUser] = useState({ ...EMPTY_NEW_USER });
   const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [showAllPatients, setShowAllPatients] = useState(false);
+  const [showAllDoctors, setShowAllDoctors] = useState(false);
+  const confirmAction = useConfirm();
   const router = useRouter();
   
   const { socket, registerUser } = useSocket();
@@ -120,14 +122,15 @@ export default function AdminDashboard() {
         const verifiedUser = data.data?.user || data.user;
         setUser(verifiedUser);
         fetchDashboardData();
-      } else {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     }
   }, [router]);
 
@@ -216,12 +219,13 @@ export default function AdminDashboard() {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       setLoading(false);
     }
   };
 
   const handleDeleteUser = async (userId: string, role: string) => {
-    if (!confirm(`Are you sure you want to delete this ${role}?`)) return;
+    if (!(await confirmAction({ title: `Delete this ${role}?`, message: 'Their account will be removed permanently.', confirmLabel: 'Delete', danger: true }))) return;
 
     const token = localStorage.getItem('token');
     try {
@@ -323,10 +327,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -335,38 +335,32 @@ export default function AdminDashboard() {
     );
   }
 
-  const statCards = [
+  const statCards: Array<{ title: string; value: number; icon: typeof Users; color: string; note?: string }> = [
     {
       title: 'Total Patients',
       value: stats.totalPatients,
       icon: Users,
       color: 'bg-blue-500',
-      trend: '+12%',
-      trendUp: true,
     },
     {
       title: 'Total Doctors',
       value: stats.totalDoctors,
       icon: Stethoscope,
       color: 'bg-green-500',
-      trend: '+5%',
-      trendUp: true,
     },
     {
       title: 'Appointments',
       value: stats.totalAppointments,
       icon: Calendar,
       color: 'bg-purple-500',
-      trend: `${stats.todayAppointments} today`,
-      trendUp: stats.todayAppointments > 0,
+      note: `${stats.todayAppointments} today`,
     },
     {
       title: 'Reports Uploaded',
       value: stats.totalReports,
       icon: FileText,
       color: 'bg-orange-500',
-      trend: `${stats.pendingReports} pending`,
-      trendUp: false,
+      note: `${stats.pendingReports} pending`,
     },
   ];
 
@@ -383,12 +377,6 @@ export default function AdminDashboard() {
             <div className="mt-4 flex md:mt-0 md:ml-4 items-center gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-700">Welcome, {user?.name}</span>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                >
-                  Logout
-                </button>
               </div>
             </div>
           </div>
@@ -397,22 +385,16 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4 mb-8">
           {statCards.map((stat) => {
             const Icon = stat.icon;
-            const TrendIcon = stat.trendUp ? TrendingUp : TrendingDown;
             return (
               <div key={stat.title} className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">{stat.title}</p>
                     <p className="mt-2 text-3xl font-semibold text-gray-900">{stat.value}</p>
-                    <div className="mt-2 flex items-center text-sm">
-                      <TrendIcon className={`h-4 w-4 ${stat.trendUp ? 'text-green-500' : 'text-gray-500'}`} />
-                      <span className={`ml-1 ${stat.trendUp ? 'text-green-600' : 'text-gray-600'}`}>
-                        {stat.trend}
-                      </span>
-                    </div>
+                    {stat.note && <p className="mt-2 text-sm text-gray-500">{stat.note}</p>}
                   </div>
                   <div className={`${stat.color} rounded-full p-3`}>
                     <Icon className="h-8 w-8 text-white" />
@@ -483,7 +465,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {patients.slice(0, 5).map((patient) => (
+                  {(showAllPatients ? patients : patients.slice(0, 5)).map((patient) => (
                     <tr key={patient._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{patient.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{patient.email}</td>
@@ -510,8 +492,8 @@ export default function AdminDashboard() {
               </table>
               {patients.length > 5 && (
                 <div className="mt-4 text-center">
-                  <button className="text-sm text-blue-600 hover:text-blue-800">
-                    View all {patients.length} patients
+                  <button type="button" onClick={() => setShowAllPatients((value) => !value)} className="text-sm text-blue-600 hover:text-blue-800">
+                    {showAllPatients ? 'Show fewer' : `View all ${patients.length} patients`}
                   </button>
                 </div>
               )}
@@ -533,7 +515,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {doctors.slice(0, 5).map((doctor) => (
+                {(showAllDoctors ? doctors : doctors.slice(0, 5)).map((doctor) => (
                   <tr key={doctor._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{doctor.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{doctor.email}</td>
@@ -560,9 +542,9 @@ export default function AdminDashboard() {
             </table>
             {doctors.length > 5 && (
               <div className="mt-4 text-center">
-                <button className="text-sm text-blue-600 hover:text-blue-800">
-                  View all {doctors.length} doctors
-                </button>
+                <button type="button" onClick={() => setShowAllDoctors((value) => !value)} className="text-sm text-blue-600 hover:text-blue-800">
+                    {showAllDoctors ? 'Show fewer' : `View all ${doctors.length} doctors`}
+                  </button>
               </div>
             )}
           </div>

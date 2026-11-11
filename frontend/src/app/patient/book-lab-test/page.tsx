@@ -13,6 +13,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { API_URL } from '@/lib/config';
 import { LAB_TESTS as labTests, LAB_TIME_SLOTS as timeSlots, type LabTest } from '@/lib/labTests';
+import { removeAuthToken } from '@/lib/auth';
 
 interface User {
   _id: string;
@@ -50,13 +51,15 @@ export default function BookLabTestPage() {
       if (response.ok) {
         const data = await response.json();
         setUser(data.data?.user || data.user);
-      } else {
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     }
   };
 

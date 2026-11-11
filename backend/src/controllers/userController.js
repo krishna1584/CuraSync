@@ -24,7 +24,7 @@ const ADMIN_ONLY_FIELDS = ['email', 'role', 'isVerified'];
 const VALID_ROLES = ['patient', 'doctor', 'nurse', 'admin', 'receptionist'];
 
 // Fields safe to show any signed-in user about a doctor.
-const PUBLIC_DOCTOR_FIELDS = 'name specialization department qualifications experience consultationFee availability doctorId profileImage';
+const PUBLIC_DOCTOR_FIELDS = 'name role specialization department qualifications experience consultationFee availability doctorId profileImage';
 
 const selfEditableFields = (role) => {
   if (role === 'patient') return [...COMMON_SELF_FIELDS, ...PATIENT_SELF_FIELDS];

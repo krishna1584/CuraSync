@@ -10,12 +10,12 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  LogOut,
   Wifi,
   WifiOff,
 } from 'lucide-react';
 import { useSocket } from '../../../contexts/SocketContext';
-import { logout } from '@/lib/auth';
+import { removeAuthToken } from '@/lib/auth';
+import { toast } from 'react-hot-toast';
 
 interface UserData {
   _id: string;
@@ -76,8 +76,7 @@ export default function DoctorAppointments() {
   // Listen for new appointments to refresh the list
   useEffect(() => {
     if (socket) {
-      socket.on('appointment_notification', (data) => {
-        console.log('Received appointment notification:', data);
+      socket.on('appointment_notification', () => {
         // Refresh appointments when new appointment is received
         fetchAppointments();
       });
@@ -92,7 +91,6 @@ export default function DoctorAppointments() {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('No token found, redirecting to login');
         router.push('/auth/login');
         return;
       }
@@ -106,35 +104,29 @@ export default function DoctorAppointments() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Auth verify result:', result);
         const userData = result.data?.user || result.user || result;
-        console.log('User data:', userData);
         
         if (!userData || !userData.role) {
-          console.log('Invalid user data structure');
-          localStorage.removeItem('token');
+          removeAuthToken();
           router.push('/auth/login');
           return;
         }
         
         if (userData.role !== 'doctor') {
-          console.log('User is not a doctor, role:', userData.role);
           router.push('/auth/login');
           return;
         }
         
         setUser(userData);
-      } else {
-        console.log('Auth verify failed with status:', response.status);
-        const errorData = await response.json().catch(() => ({}));
-        console.log('Error data:', errorData);
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -155,16 +147,12 @@ export default function DoctorAppointments() {
       if (response.ok) {
         const result = await response.json();
         const appointmentsData = result.data || result;
-        console.log('Fetched appointments:', appointmentsData);
         setAppointments(appointmentsData);
       }
     } catch (error) {
       console.error('Failed to fetch appointments:', error);
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     }
-  };
-
-  const handleLogout = () => {
-    logout();
   };
 
   const formatDate = (dateString: string) => {
@@ -295,13 +283,6 @@ export default function DoctorAppointments() {
             </div>
             <p className="text-gray-600">Manage your patient appointments and schedule</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </button>
         </div>
 
         {/* Stats Cards */}
@@ -342,7 +323,7 @@ export default function DoctorAppointments() {
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                           <User className="h-5 w-5 text-blue-600" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <h3 className="text-lg font-semibold text-gray-900">
                             {appointment.patient?.name || 'Unknown Patient'}
                           </h3>
@@ -353,7 +334,7 @@ export default function DoctorAppointments() {
                         <p className="text-sm text-gray-700 mb-2">{appointment.reason}</p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => updateAppointmentStatus(appointment._id, 'completed')}
                         className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
@@ -380,14 +361,14 @@ export default function DoctorAppointments() {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Upcoming Appointments</h2>
             <div className="bg-white rounded-lg shadow divide-y">
               {upcomingAppointments.map((appointment) => (
-                <div key={appointment._id} className="p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between">
+                <div key={appointment._id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                           <User className="h-5 w-5 text-blue-600" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <h3 className="text-lg font-semibold text-gray-900">
                             {appointment.patient?.name || 'Unknown Patient'}
                           </h3>
@@ -432,7 +413,7 @@ export default function DoctorAppointments() {
                               effectiveStatus === 'expired' ? 'text-orange-600' : 'text-gray-600'
                             }`} />
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <h3 className="text-lg font-semibold text-gray-900">{patientName}</h3>
                             <p className="text-sm text-gray-600">{formatDate(appointment.date)} at {appointment.time}</p>
                           </div>

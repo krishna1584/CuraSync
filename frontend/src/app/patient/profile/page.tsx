@@ -6,11 +6,6 @@ import Link from 'next/link';
 import { API_URL } from '@/lib/config';
 import { 
   User, 
-  Mail, 
-  Phone, 
-  Calendar, 
-  MapPin, 
-  Droplet, 
   Heart,
   AlertCircle,
   Edit2,
@@ -19,6 +14,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { removeAuthToken } from '@/lib/auth';
 
 interface EmergencyContact {
   name?: string;
@@ -101,14 +97,15 @@ export default function PatientProfile() {
         }
         
         setUser(userData);
-      } else {
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -275,7 +272,7 @@ export default function PatientProfile() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <p className="text-gray-900">{user.email}</p>
+                  <p className="text-gray-900 break-all">{user.email}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>

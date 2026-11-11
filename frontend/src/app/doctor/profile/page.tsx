@@ -26,6 +26,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { removeAuthToken } from '@/lib/auth';
 
 interface DoctorData {
   _id: string;
@@ -130,14 +131,15 @@ export default function DoctorProfile() {
         }
         
         setUser(userData);
-      } else {
-        localStorage.removeItem('token');
+      } else if (response.status === 401) {
+        removeAuthToken();
         router.push('/auth/login');
+      } else {
+        toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      router.push('/auth/login');
+      toast.error('Some information could not be loaded. Please refresh the page.', { id: 'load-error' });
     } finally {
       setLoading(false);
     }
@@ -289,15 +291,15 @@ export default function DoctorProfile() {
 
         {/* Header */}
         <div className="bg-white rounded-lg shadow mb-6 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center space-x-4 min-w-0">
               <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
                 <User className="h-10 w-10 text-blue-600" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-2xl font-bold text-gray-900">{user?.name}</h1>
                 <p className="text-gray-600">{user?.specialization || 'Medical Practitioner'}</p>
-                <p className="text-sm text-gray-500">{user?.email}</p>
+                <p className="text-sm text-gray-500 break-all">{user?.email}</p>
               </div>
             </div>
             {activeTab === 'profile' && !isEditMode && (
@@ -314,7 +316,7 @@ export default function DoctorProfile() {
 
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow">
-          <nav className="flex border-b">
+          <nav className="flex border-b overflow-x-auto whitespace-nowrap">
             <button
               onClick={() => setActiveTab('profile')}
               className={`py-4 px-6 border-b-2 font-medium text-sm ${
@@ -392,7 +394,7 @@ export default function DoctorProfile() {
                           <Mail className="inline h-4 w-4 mr-2" />
                           Email
                         </label>
-                        <p className="text-gray-900">{user.email}</p>
+                        <p className="text-gray-900 break-all">{user.email}</p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
