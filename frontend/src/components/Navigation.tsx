@@ -45,10 +45,32 @@ export default function Navigation() {
     }, { rootMargin: '-96px 0px -60% 0px' });
 
     sections.forEach((section) => observer.observe(section));
-    return () => observer.disconnect();
+
+    // The last section is too short to reach the top of the screen, so mark it once the page is scrolled to the end.
+    const markLastAtBottom = () => {
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+      if (atBottom && sections.length) setActiveSection(sections[sections.length - 1].id);
+    };
+    window.addEventListener('scroll', markLastAtBottom, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', markLastAtBottom);
+    };
   }, []);
 
   const closeMenu = () => setMenuOpen(false);
+
+  // Closing the phone menu removes the tapped link, which cancels the browser's own jump,
+  // so scroll to the section ourselves once the menu has closed.
+  const goToSection = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    event.preventDefault();
+    closeMenu();
+    window.setTimeout(() => {
+      document.getElementById(href.slice(1))?.scrollIntoView({ behavior: 'smooth' });
+      window.history.replaceState(null, '', href);
+    }, 0);
+  };
   const account = signedIn ? (
     <>
       <Link href={dashboardFor(role)} onClick={closeMenu} className="btn btn-outline">Dashboard</Link>
@@ -66,13 +88,13 @@ export default function Navigation() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Logo />
 
-        <div className="hidden items-center gap-8 md:flex">
+        <div className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
               aria-current={activeSection === link.href.slice(1) ? 'true' : undefined}
-              className={`text-sm font-medium transition-colors hover:text-blue-600 ${activeSection === link.href.slice(1) ? 'text-blue-600' : 'text-gray-600'}`}
+              className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-colors hover:text-blue-600 ${activeSection === link.href.slice(1) ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
             >
               {link.label}
             </a>
@@ -95,7 +117,7 @@ export default function Navigation() {
       {menuOpen && (
         <div className="border-t border-gray-200 px-4 pt-2 pb-4 shadow-lg md:hidden">
           {NAV_LINKS.map((link) => (
-            <a key={link.href} href={link.href} onClick={closeMenu} className="block rounded-lg px-3 py-3 font-medium text-gray-700 hover:bg-gray-50">
+            <a key={link.href} href={link.href} onClick={(event) => goToSection(event, link.href)} className="block rounded-lg px-3 py-3 font-medium text-gray-700 hover:bg-gray-50">
               {link.label}
             </a>
           ))}

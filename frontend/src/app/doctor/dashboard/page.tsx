@@ -21,6 +21,7 @@ import {
 import { useSocket } from '../../../contexts/SocketContext';
 import { removeAuthToken } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
+import { appointmentDay, todayLocal } from '@/lib/dates';
 
 interface Report {
   _id: string;
@@ -237,18 +238,23 @@ export default function DoctorDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id, socket, isConnected]);
 
+  // Only today's appointments that are still happening, earliest first.
+  const todaysAppointments = appointments
+    .filter((appointment) => appointment.date && appointmentDay(appointment.date) === todayLocal() && appointment.status !== 'cancelled')
+    .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
   // Listen for new appointments to refresh the list
   useEffect(() => {
     if (socket) {
-      socket.on('appointment_notification', (data) => {
-        if (data.type === 'new_appointment') {
-          // Refresh appointments when new appointment is received
-          fetchAppointments();
-        }
-      });
+      // Refresh the list when a new appointment is booked.
+      const refresh = (data: { type?: string }) => {
+        if (data?.type === 'new_appointment') fetchAppointments();
+      };
+      socket.on('appointment_notification', refresh);
 
+      // Remove only this page's listener; the app-wide one shows the alert.
       return () => {
-        socket.off('appointment_notification');
+        socket.off('appointment_notification', refresh);
       };
     }
   }, [socket]);
@@ -419,9 +425,9 @@ export default function DoctorDashboard() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
               <p className="text-gray-600 mt-2">Loading appointments...</p>
             </div>
-          ) : appointments.length > 0 ? (
+          ) : todaysAppointments.length > 0 ? (
             <div className="space-y-3">
-              {appointments.map((appointment) => {
+              {todaysAppointments.map((appointment) => {
                 const patientName = appointment.patient?.name || 'Unknown Patient';
                 const appointmentTime = appointment.time || 'N/A';
                 return (

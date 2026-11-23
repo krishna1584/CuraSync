@@ -101,9 +101,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     // Use existing socket or create new one
     if (!globalSocket) {
       globalSocket = io(SOCKET_URL, {
+        // Keep trying for as long as the page is open (e.g. while the server restarts),
+        // so live alerts come back on their own instead of stopping for good.
         reconnection: true,
         reconnectionDelay: 1000,
-        reconnectionAttempts: 5,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: Infinity,
         transports: ['websocket', 'polling']
       });
 

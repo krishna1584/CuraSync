@@ -85,11 +85,12 @@ app.use(cookieParser());
 // Compression middleware
 app.use(compression());
 
-// Logging middleware
+// Logging middleware: only failed requests (4xx/5xx) are logged, so the log stays readable.
+const onlyProblems = (req, res) => res.statusCode < 400;
 if (process.env.NODE_ENV !== 'production') {
-  app.use(morgan('dev'));
+  app.use(morgan('dev', { skip: onlyProblems }));
 } else {
-  app.use(morgan('combined'));
+  app.use(morgan('combined', { skip: onlyProblems }));
 }
 
 // Health check route

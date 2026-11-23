@@ -16,6 +16,7 @@ import {
 import { useSocket } from '../../../contexts/SocketContext';
 import { removeAuthToken } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
+import { appointmentDay, todayLocal } from '@/lib/dates';
 
 interface UserData {
   _id: string;
@@ -76,13 +77,13 @@ export default function DoctorAppointments() {
   // Listen for new appointments to refresh the list
   useEffect(() => {
     if (socket) {
-      socket.on('appointment_notification', () => {
-        // Refresh appointments when new appointment is received
-        fetchAppointments();
-      });
+      // Refresh the list when an appointment is booked or changed.
+      const refresh = () => fetchAppointments();
+      socket.on('appointment_notification', refresh);
 
+      // Remove only this page's listener; the app-wide one shows the alert.
       return () => {
-        socket.off('appointment_notification');
+        socket.off('appointment_notification', refresh);
       };
     }
   }, [socket]);
@@ -218,23 +219,10 @@ export default function DoctorAppointments() {
     }
   };
 
-  const isToday = (dateString: string) => {
-    const today = new Date();
-    const appointmentDate = new Date(dateString);
-    return today.toDateString() === appointmentDate.toDateString();
-  };
-
-  const isUpcoming = (dateString: string) => {
-    const today = new Date();
-    const appointmentDate = new Date(dateString);
-    return appointmentDate > today && !isToday(dateString);
-  };
-
-  const isPast = (dateString: string) => {
-    const today = new Date();
-    const appointmentDate = new Date(dateString);
-    return appointmentDate < today && !isToday(dateString);
-  };
+  // Compare calendar days, so "today" is right in every time zone.
+  const isToday = (dateString: string) => appointmentDay(dateString) === todayLocal();
+  const isUpcoming = (dateString: string) => appointmentDay(dateString) > todayLocal();
+  const isPast = (dateString: string) => appointmentDay(dateString) < todayLocal();
 
   // Check if appointment is expired (past date and still scheduled)
   const isExpired = (appointment: Appointment) => {
